@@ -35,3 +35,13 @@ async def analyze_video(file: UploadFile = File(...)):
     await file.seek(0)
     
     return await service.analyze_video(file.file, file.filename)
+
+@router.post("/detect-deepfake")
+async def detect_deepfake(file: UploadFile):
+    # 파일 저장
+    video_path = f"uploads/{file.filename}"
+    
+    # 딥페이크 탐지
+    result = await video_service.detect_deepfake(video_path)
+    
+    return result
