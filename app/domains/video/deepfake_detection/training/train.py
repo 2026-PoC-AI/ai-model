@@ -1,3 +1,10 @@
+import sys
+from pathlib import Path
+
+# 프로젝트 루트를 Python path에 추가
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -221,7 +228,7 @@ class Trainer:
                 self.best_val_acc = val_metrics['accuracy']
                 self.save_checkpoint('best_model.pth', epoch, val_metrics)
                 self.patience_counter = 0
-                print(f"\n✓ Best model saved (accuracy: {val_metrics['accuracy']:.4f})")
+                print(f"\nBest model saved (accuracy: {val_metrics['accuracy']:.4f})")
             else:
                 self.patience_counter += 1
             
