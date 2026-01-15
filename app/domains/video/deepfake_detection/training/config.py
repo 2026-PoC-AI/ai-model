@@ -1,4 +1,5 @@
 import torch
+from datetime import datetime
 
 class TrainingConfig:
     """
@@ -37,9 +38,12 @@ class TrainingConfig:
         self.scheduler = 'cosine'
         self.min_lr = 1e-6
         
-        # 체크포인트
+        # 체크포인트 (날짜 포함)
         self.save_dir = save_dir
         self.save_frequency = 5
+        
+        # 날짜 형식 (YYYYMMDD)
+        self.date_str = datetime.now().strftime('%Y%m%d')
         
         # 장치
         if device is None:

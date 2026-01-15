@@ -258,6 +258,14 @@ class Trainer:
         """
         os.makedirs(self.config.save_dir, exist_ok=True)
         
+        # 파일명에 모델명과 날짜 포함
+        if filename == 'best_model.pth':
+            filename = f'{self.config.model_name}_best_{self.config.date_str}.pth'
+        else:
+            # checkpoint_epoch_5.pth -> xception_checkpoint_epoch_5_20260115.pth
+            epoch_num = filename.split('_')[-1].replace('.pth', '')
+            filename = f'{self.config.model_name}_checkpoint_epoch_{epoch_num}_{self.config.date_str}.pth'
+        
         checkpoint = {
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
