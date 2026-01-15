@@ -302,7 +302,10 @@ class Trainer:
                 metrics_copy['confusion_matrix'] = metrics_copy['confusion_matrix'].tolist()
             history_to_save['val_metrics'].append(metrics_copy)
         
-        filepath = os.path.join(self.config.save_dir, 'training_history.json')
+        # 파일명에 모델명과 날짜 포함
+        filename = f'{self.config.model_name}_training_history_{self.config.date_str}.json'
+        filepath = os.path.join(self.config.save_dir, filename)
+        
         with open(filepath, 'w') as f:
             json.dump(history_to_save, f, indent=2)
         
