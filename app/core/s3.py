@@ -1,6 +1,8 @@
 # app/core/s3.py
 import json
 import boto3
+from app.core.config import settings
+from botocore.exceptions import ClientError
 from typing import Union
 from app.core.config import settings
 
