@@ -1,9 +1,10 @@
+import argparse
 import sys
 from pathlib import Path
 
-# 프로젝트 루트를 Python path에 추가
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+# 현재 모듈 루트(deepfake_detection)를 path에 추가
+current_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(current_dir))
 
 import torch
 import torch.nn as nn
@@ -16,7 +17,9 @@ import numpy as np
 import json
 from datetime import datetime
 
+# 상대 경로로 임포트
 from models.xception import XceptionNet
+from models.efficientnet import EfficientNetB4
 from preprocessing.dataset import DeepfakeDataset, get_transforms
 from training.config import TrainingConfig
 from training.metrics import MetricsCalculator
@@ -25,20 +28,16 @@ class Trainer:
     """
     딥페이크 탐지 모델 학습 클래스
     """
-    def __init__(self, config):
+    def __init__(self, model, config):  # model 파라미터 추가
         self.config = config
         self.device = torch.device(config.device)
         
-        # 모델 초기화
-        self.model = XceptionNet(
-            num_classes=config.num_classes,
-            pretrained=config.pretrained,
-            dropout=config.dropout
-        ).to(self.device)
+        # 모델 초기화 (외부에서 받음)
+        self.model = model.to(self.device)
         
         print(f"Model initialized: {config.model_name}")
         print(f"Device: {self.device}")
-        
+
         # 데이터 로더
         self.train_loader = self._create_dataloader('train')
         self.val_loader = self._create_dataloader('val')
@@ -301,7 +300,54 @@ class Trainer:
         
         print(f"Training history saved to {filepath}")
 
-if __name__ == '__main__':
-    config = TrainingConfig()
-    trainer = Trainer(config)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Train deepfake detection model')
+    
+    # 모델 선택 인자 추가
+    parser.add_argument('--model', type=str, default='xception',
+                        choices=['xception', 'efficientnet'],
+                        help='Model architecture to use')
+    
+    parser.add_argument('--data_dir', type=str, 
+                        default='data/processed',
+                        help='Path to processed dataset')
+    parser.add_argument('--batch_size', type=int, default=16,
+                        help='Batch size for training')
+    parser.add_argument('--epochs', type=int, default=30,
+                        help='Number of training epochs')
+    parser.add_argument('--lr', type=float, default=0.001,
+                        help='Learning rate')
+    parser.add_argument('--device', type=str, default='cuda',
+                        choices=['cuda', 'cpu'],
+                        help='Device to use')
+    parser.add_argument('--num_workers', type=int, default=4,
+                        help='Number of data loading workers')
+    parser.add_argument('--save_dir', type=str, 
+                        default='models/checkpoints',
+                        help='Directory to save checkpoints')
+    
+    args = parser.parse_args()
+    
+    # Config 생성
+    config = TrainingConfig(
+        model_name=args.model,
+        data_dir=args.data_dir,
+        batch_size=args.batch_size,
+        num_epochs=args.epochs,
+        learning_rate=args.lr,
+        device=args.device,
+        num_workers=args.num_workers,
+        save_dir=args.save_dir
+    )
+    
+    # 모델 선택
+    if args.model == 'xception':
+        from models.xception import XceptionNet
+        model = XceptionNet(num_classes=2, pretrained=True)
+    elif args.model == 'efficientnet':
+        from models.efficientnet import EfficientNetB4
+        model = EfficientNetB4(num_classes=2, pretrained=True)
+    
+    # Trainer 생성 및 학습
+    trainer = Trainer(model, config)
     trainer.train()
