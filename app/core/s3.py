@@ -58,5 +58,12 @@ class S3Client:
             content_type="application/json",
         )
 
+    def download_bytes(self, key: str) -> bytes:
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=key)
+            return response["Body"].read()
+        except ClientError as e:
+            raise e
+
 # 싱글톤으로 써도 OK
 s3_client = S3Client()

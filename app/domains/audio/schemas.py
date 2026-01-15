@@ -1,7 +1,10 @@
 # app/domains/audio/schemas.py
 from pydantic import BaseModel, Field
 from typing import List
+from pydantic import BaseModel
 
+class AudioAnalyzeRequest(BaseModel):
+    audio_s3_key: str
 class AudioEvidence(BaseModel):
     score: float
     reason: str
