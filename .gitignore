@@ -205,3 +205,32 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+## Video Session
+# Deepfake Detection Data
+
+domains/video/data/
+domains/video/deepfake_detection/weights/*.pth
+domains/video/deepfake_detection/weights/*.pt
+
+# Large dataset files
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Model checkpoints
+*.h5
+*.pkl
+*.pth
+*.pt
+*.onnx
+
+# Processed data
+*.npy
+*.npz
+
+# 프레임 추출 후 전처리된 이미지 파일
+app/domains/video/data/processed/*
+!app/domains/video/data/processed/.gitkeep
