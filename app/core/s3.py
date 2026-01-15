@@ -1,6 +1,8 @@
 # app/core/s3.py
 import json
 import boto3
+from app.core.config import settings
+from botocore.exceptions import ClientError
 from typing import Union
 from app.core.config import settings
 
@@ -57,6 +59,13 @@ class S3Client:
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
             content_type="application/json",
         )
+
+    def download_bytes(self, key: str) -> bytes:
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=key)
+            return response["Body"].read()
+        except ClientError as e:
+            raise e
 
 # 싱글톤으로 써도 OK
 s3_client = S3Client()
