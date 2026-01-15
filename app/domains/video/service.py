@@ -11,7 +11,7 @@ from .schemas import (
     FrameAnalysisData
 )
 from .model import load_video_model
-from video.deepfake_detection.inference.predictor import DeepfakePredictor
+# from app.domains.video.deepfake_detection.inference.predictor import DeepfakePredictor
 
 class VideoService:
     def __init__(self):
