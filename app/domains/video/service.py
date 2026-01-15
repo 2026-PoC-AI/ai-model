@@ -11,6 +11,17 @@ from .schemas import (
     FrameAnalysisData
 )
 from .model import load_video_model
+from video.deepfake_detection.inference.predictor import DeepfakePredictor
+
+class VideoService:
+    def __init__(self):
+        self.deepfake_predictor = DeepfakePredictor(
+            model_path='video/deepfake_detection/weights/best_model.pth'
+        )
+    
+    async def detect_deepfake(self, video_path: str):
+        result, error = self.deepfake_predictor.predict_video(video_path)
+        return result
 
 class VideoAnalysisService:
     
