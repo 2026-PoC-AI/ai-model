@@ -6,6 +6,10 @@ class Settings(BaseSettings):
     APP_NAME: str
     APP_ENV: str
     LOG_LEVEL: str
+    
+    # Server
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
 
     AUDIO_MODEL_PATH: str
     VIDEO_MODEL_PATH: str
@@ -19,5 +23,12 @@ class Settings(BaseSettings):
     MAX_VIDEO_MB: int = 300
     MAX_IMAGE_MB: int = 20
     MAX_TEXT_LENGTH: int = 10000
+    MIN_AUDIO_DURATION: float = 3.0
+    
+    # AWS
+    AWS_ACCESS_KEY_ID: str
+    AWS_SECRET_ACCESS_KEY: str
+    AWS_REGION: str
+    AWS_BUCKET_NAME: str
 
 settings = Settings()
