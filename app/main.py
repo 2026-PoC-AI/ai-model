@@ -1,4 +1,5 @@
 # app/main.py
+import uvicorn
 from fastapi import FastAPI
 
 from app.core.logging import setup_logging
@@ -6,6 +7,7 @@ from app.core.request_id import RequestIdMiddleware
 from app.common.exceptions import register_exception_handlers
 from app.api.v1.router import router as v1_router
 from app.core.model_registry import init_models, close_models
+from app.core.config import settings  # <--- 이 줄이 꼭 필요합니다!
 
 def create_app() -> FastAPI:
     setup_logging()
@@ -27,3 +29,11 @@ def create_app() -> FastAPI:
     return app
 
 app = create_app()
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "app.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=True
+    )
