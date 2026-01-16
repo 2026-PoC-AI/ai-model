@@ -7,12 +7,27 @@ _DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 _model = None
 
+_WEIGHT_PATH = "app/domains/image/deepfake/weights/deepfake_c0_xception.pkl"
+
 def _load_model():
     global _model
     if _model is None:
-        model = XceptionNet(pretrained=True)
-        # 자체 학습 가중치 있을 경우
-        # model.load_state_dict(torch.load("weights/xception.pth", map_location=_DEVICE))
+        print("[XCEPTION] loading FF++ pretrained weight...")
+        model = XceptionNet(pretrained=False)
+        
+        state = torch.load(_WEIGHT_PATH, map_location=_DEVICE)
+        # 대부분의 FF++ weight는 state_dict 키를 가짐
+        if isinstance(state, dict) and "state_dict" in state:
+            state = state["state_dict"]
+
+        # key 이름 정리 (module. 제거)
+        clean_state = {}
+        for k, v in state.items():
+            if k.startswith("module."):
+                k = k.replace("module.", "")
+            clean_state[k] = v
+
+
         model.eval()
         model.to(_DEVICE)
         _model = model
