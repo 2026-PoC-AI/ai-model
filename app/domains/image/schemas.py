@@ -7,6 +7,10 @@ class ImageEvidence(BaseModel):
     score: float
     reason: str
 
+# S3입력 Request
+class ImageAnalyzeRequest(BaseModel):
+    s3_key: str = Field(..., description="S3 object key for image file")
+
 # 딥페이크 전용 응답
 class ImageAnalyzeResponse(BaseModel):
     task: str = "deepfake_image"
