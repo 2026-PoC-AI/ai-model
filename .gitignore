@@ -238,5 +238,9 @@ app/domains/video/data/processed/*
 
 
 ## image Session
+
 # DATA
 app/domains/image/deepfake/weights/
+
+# yaml파일
+*.yaml
