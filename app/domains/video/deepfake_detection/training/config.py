@@ -40,7 +40,7 @@ class TrainingConfig:
         
         # 체크포인트 (날짜 포함)
         self.save_dir = save_dir
-        self.save_frequency = 5
+        self.save_frequency = 1 
         
         # 날짜 형식 (YYYYMMDD)
         self.date_str = datetime.now().strftime('%Y%m%d')
