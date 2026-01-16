@@ -40,10 +40,22 @@ def analyze_image(
         image_bytes = s3_client.download_bytes(s3_key)
         
         label, confidence = model.predict_deepfake(image_bytes)
+        
+        risk_score = int(confidence * 100)
+
+        if risk_score >= 85:
+            grade = "HIGH"
+        elif risk_score >= 65:
+            grade = "MEDIUM"
+        else:
+            grade = "LOW"
+
         interpretation = interpret_deepfake(label, confidence)
 
         return ImageAnalyzeResponse(
             task="deepfake_image",
+            risk_score=risk_score,
+            grade=grade,
             label=label,
             confidence=confidence,
             interpretation=interpretation,
