@@ -1,3 +1,4 @@
+# dataset.py
 import os
 from PIL import Image
 from torch.utils.data import Dataset
@@ -6,28 +7,32 @@ import torchvision.transforms as T
 IMG_EXT = (".jpg", ".jpeg", ".png")
 
 
-class FFPPImageDataset(Dataset):
-    def __init__(self, root_dir: str, transform=None):
+class KoDFImageDataset(Dataset):
+
+    def __init__(self, real_dir: str, fake_dir: str, transform=None):
         self.samples = []
         self.transform = transform
 
-        for label_name, label in [("real", 0), ("fake", 1)]:
-            class_dir = os.path.join(root_dir, label_name)
-            if not os.path.exists(class_dir):
-                continue
+        # REAL = 0
+        for root, _, files in os.walk(real_dir):
+            for fname in files:
+                if fname.lower().endswith(IMG_EXT):
+                    self.samples.append(
+                        (os.path.join(root, fname), 0)
+                    )
 
-            # 하위 디렉토리까지 전부 탐색
-            for root, _, files in os.walk(class_dir):
-                for fname in files:
-                    if fname.lower().endswith(IMG_EXT):
-                        self.samples.append(
-                            (os.path.join(root, fname), label)
-                        )
+        # FAKE = 1
+        for root, _, files in os.walk(fake_dir):
+            for fname in files:
+                if fname.lower().endswith(IMG_EXT):
+                    self.samples.append(
+                        (os.path.join(root, fname), 1)
+                    )
 
         if len(self.samples) == 0:
-            raise RuntimeError(f"No images found in {root_dir}")
+            raise RuntimeError("No images found in KoDF dataset")
 
-        print(f"[FFPPDataset] Loaded {len(self.samples)} images")
+        print(f"[KoDFDataset] Loaded {len(self.samples)} images")
 
     def __len__(self):
         return len(self.samples)
