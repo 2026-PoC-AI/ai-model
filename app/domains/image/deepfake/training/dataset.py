@@ -16,20 +16,25 @@ class FFPPImageDataset(Dataset):
             if not os.path.exists(class_dir):
                 continue
 
-            for fname in os.listdir(class_dir):
-                if fname.lower().endswith(IMG_EXT):
-                    self.samples.append(
-                        (os.path.join(class_dir, fname), label)
-                    )
+            # 하위 디렉토리까지 전부 탐색
+            for root, _, files in os.walk(class_dir):
+                for fname in files:
+                    if fname.lower().endswith(IMG_EXT):
+                        self.samples.append(
+                            (os.path.join(root, fname), label)
+                        )
 
         if len(self.samples) == 0:
             raise RuntimeError(f"No images found in {root_dir}")
+
+        print(f"[FFPPDataset] Loaded {len(self.samples)} images")
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
         path, label = self.samples[idx]
+
         image = Image.open(path).convert("RGB")
 
         if self.transform:
@@ -42,8 +47,13 @@ def build_transform(train: bool = True):
     if train:
         return T.Compose([
             T.Resize((299, 299)),
-            T.RandomHorizontalFlip(),
-            T.ColorJitter(0.1, 0.1, 0.1, 0.05),
+            T.RandomHorizontalFlip(p=0.5),
+            T.ColorJitter(
+                brightness=0.1,
+                contrast=0.1,
+                saturation=0.1,
+                hue=0.05,
+            ),
             T.ToTensor(),
             T.Normalize(
                 mean=[0.485, 0.456, 0.406],
