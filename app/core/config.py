@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     IMAGE_MODEL_PATH: str
     TEXT_MODEL_PATH: str
 
+    IMAGE_WEIGHT_PATH: str = "app/domains/image/deepfake/weights/custom_xception.pth"
+
     USE_GPU: bool = False
     GPU_DEVICE_ID: int = 0
 

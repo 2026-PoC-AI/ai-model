@@ -14,8 +14,12 @@ class ImageAnalyzeRequest(BaseModel):
 # 딥페이크 전용 응답
 class ImageAnalyzeResponse(BaseModel):
     task: str = "deepfake_image"
-    label: str  # FAKE | REAL
-    confidence: float = Field(..., ge=0.0, le=1.0)
+    
+    risk_score: int = Field(..., ge=0, le=100)
+    grade: str  # LOW | MEDIUM | HIGH
+    
+    label: str
+    confidence: float
 
     interpretation: Dict[str, str]
 
