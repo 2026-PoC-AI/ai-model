@@ -1,34 +1,38 @@
 # app/domains/image/deepfake/predictor.py
 import torch
+from app.core.config import settings
 from app.domains.image.deepfake.preprocess import preprocess_image
 from app.domains.image.deepfake.xception_model import XceptionNet
 
-_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-_WEIGHT_PATH = "app/domains/image/deepfake/weights/custom_xception.pth"
+def _get_device() -> torch.device:
+    if settings.USE_GPU and torch.cuda.is_available():
+        return torch.device(f"cuda:{settings.GPU_DEVICE_ID}")
+    return torch.device("cpu")
 
+_DEVICE = _get_device()
 _model = None
 
-def _load_model():
+def load_xception_model():
     global _model
-    if _model is None:
-        print("[XCEPTION] loading custom trained model...")
-        model = XceptionNet(pretrained=False)
-        state = torch.load(_WEIGHT_PATH, map_location=_DEVICE)
-        model.load_state_dict(state)
-        model.eval().to(_DEVICE)
-        _model = model
+    if _model is not None:
+        return _model
+
+    model = XceptionNet(pretrained=False)
+    state = torch.load(settings.IMAGE_WEIGHT_PATH, map_location=_DEVICE)
+    model.load_state_dict(state)
+    model.eval().to(_DEVICE)
+    _model = model
     return _model
 
-
-
-def predict_xception(image_bytes: bytes):
-    model = _load_model()
-    tensor = preprocess_image(image_bytes).to(_DEVICE)
+def predict_xception(image_bytes: bytes) -> dict:
+    model = load_xception_model()
+    x = preprocess_image(image_bytes).to(_DEVICE)
 
     with torch.no_grad():
-        logit = model(tensor)
+        logit = model(x)
         prob = torch.sigmoid(logit).item()
 
+    # label rule (너 정책 유지)
     if prob >= 0.7:
         label = "FAKE"
     elif prob <= 0.3:
@@ -36,4 +40,7 @@ def predict_xception(image_bytes: bytes):
     else:
         label = "UNCERTAIN"
 
-    return label, round(prob, 4)
+    return {
+        "label": label,
+        "confidence": round(prob, 4),
+    }
