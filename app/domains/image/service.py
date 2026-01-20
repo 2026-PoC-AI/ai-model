@@ -8,6 +8,7 @@ from app.common.errors import Errors
 from app.core.s3 import s3_client
 from app.core.config import settings
 from app.domains.image.deepfake.predictor import predict_xception
+from app.domains.image.spring_client import ImageSpringClient
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -52,9 +53,7 @@ def analyze_image(request: Request, job_uuid: str, s3_key: str) -> dict:
     except ClientError as e:
         raise AppError(Errors.INFERENCE_FAILED, details=f"S3 download failed: {str(e)}")
 
-    pred = predict_xception(image_bytes)
-    confidence = float(pred["confidence"])
-
+    confidence = predict_xception(image_bytes)
     decision_info = interpret_deepfake(confidence)
 
     result_payload = {
@@ -67,8 +66,6 @@ def analyze_image(request: Request, job_uuid: str, s3_key: str) -> dict:
             "risk_level": decision_info["risk_level"],
             "grade": decision_info["grade"],
             "message": decision_info["message"],
-            "evidence": [],
-            "warnings": [],
         },
         "meta": {
             "model": "xception",
@@ -83,6 +80,19 @@ def analyze_image(request: Request, job_uuid: str, s3_key: str) -> dict:
         s3_client.upload_json(result_s3_key, result_payload)
     except ClientError as e:
         raise AppError(Errors.INFERENCE_FAILED, details=f"S3 upload failed: {str(e)}")
+    
+    spring_client = ImageSpringClient()
+
+    callback_payload = {
+        "jobUuid": job_uuid,
+        "decision": decision_info["decision"],
+        "riskLevel": decision_info["risk_level"],
+        "message": decision_info["message"],
+        "confidence": confidence,
+        "rawResult": result_payload,
+    }
+
+    spring_client.send_deepfake_result(callback_payload)
 
     return {
         "task": "deepfake_image",

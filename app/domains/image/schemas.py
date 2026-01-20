@@ -1,6 +1,6 @@
 # app/domains/image/schemas.py
 from pydantic import BaseModel, Field
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 class ImageEvidence(BaseModel):
     region: str
@@ -23,6 +23,6 @@ class ImageAnalyzeResponse(BaseModel):
 
     interpretation: Dict[str, str]
 
-    evidence: List[ImageEvidence] = []
-    warnings: List[str] = []
+    evidence: Optional[List[ImageEvidence]] = None
+    warnings: Optional[List[str]] = None
 
