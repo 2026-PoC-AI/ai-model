@@ -11,6 +11,7 @@ pillow>=9.0.0
 facenet-pytorch>=2.5.0
 tqdm>=4.65.0
 timm>=0.9.12
+requests>=2.31.0
 
 # Video 분석용 추가
 opencv-python==4.8.1.78

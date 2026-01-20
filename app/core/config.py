@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     # Server
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    
+    SPRING_BACKEND_URL: str
 
     AUDIO_MODEL_PATH: str
     VIDEO_MODEL_PATH: str  # 기존 (사용 안 함)
