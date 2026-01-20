@@ -1,9 +1,10 @@
 import os
 import cv2
-import uuid
+from pathlib import Path
 from datetime import datetime
 from decimal import Decimal
 from typing import List
+from app.core.config import settings
 from .schemas import (
     VideoAnalysisResponse,
     VideoFileData,
@@ -11,57 +12,47 @@ from .schemas import (
     FrameAnalysisData
 )
 from .model import load_video_model
-# from app.domains.video.deepfake_detection.inference.predictor import DeepfakePredictor
-
-class VideoService:
-    def __init__(self):
-        self.deepfake_predictor = DeepfakePredictor(
-            model_path='video/deepfake_detection/weights/best_model.pth'
-        )
-    
-    async def detect_deepfake(self, video_path: str):
-        result, error = self.deepfake_predictor.predict_video(video_path)
-        return result
 
 class VideoAnalysisService:
-    
     def __init__(self):
-        self.upload_dir = "uploads/videos"
-        os.makedirs(self.upload_dir, exist_ok=True)
-        self.model = load_video_model()  # 모델 로드
+        # 업로드 디렉토리 설정
+        self.upload_dir = Path("uploads/video")
+        self.upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # config에서 모델 경로 가져오기
+        self.model = load_video_model(
+            xception_path=settings.XCEPTION_MODEL_PATH,
+            efficientnet_path=settings.EFFICIENTNET_MODEL_PATH,
+            ensemble_method='soft_voting',
+            weights=[0.5, 0.5]
+        )
     
-    async def analyze_video(self, file, filename: str) -> VideoAnalysisResponse:
+    async def analyze_video(self, content: bytes, filename: str, analysis_id: int) -> VideoAnalysisResponse:
         """영상 딥페이크 분석 메인 로직"""
         start_time = datetime.now()
     
-        # 1. ID 생성
-        analysis_id = str(uuid.uuid4())
-        file_id = str(uuid.uuid4())
-        result_id = str(uuid.uuid4())
-        
-        # 2. 파일 저장
+        # 1. 파일 저장 경로 설정 (ID 기반 파일명)
         file_extension = filename.split('.')[-1]
         stored_filename = f"{analysis_id}_{int(datetime.now().timestamp())}.{file_extension}"
         file_path = os.path.join(self.upload_dir, stored_filename)
         
-        # 수정: await 제거
-        content = file.read()  # await 제거!
+        # 2. 바이너리 데이터 파일로 저장
         with open(file_path, "wb") as buffer:
             buffer.write(content)
         
-        # 3. 영상 메타데이터 추출
+        # 3. 영상 메타데이터 추출 (OpenCV 사용)
         video_info = self._extract_video_info(file_path)
         
-        # 4. 프레임 분석 (모델 사용)
+        # 4. 프레임 분석 (AI 모델 호출)
         frame_analyses = self._analyze_frames(file_path, video_info['fps'])
         
-        # 5. 딥페이크 판정
+        # 5. 최종 딥페이크 판정
         is_deepfake, confidence_score = self._detect_deepfake(frame_analyses)
         
         # 6. 처리 시간 계산
         processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
         
-        # 7. 응답 생성
+        # 7. 응답 생성 (DB 생성 ID들은 제외하고 분석 데이터 위주로 구성)
         return VideoAnalysisResponse(
             analysisId=analysis_id,
             title=filename,
@@ -69,7 +60,6 @@ class VideoAnalysisService:
             createdAt=start_time,
             completedAt=datetime.now(),
             videoFile=VideoFileData(
-                fileId=file_id,
                 originalFilename=filename,
                 storedFilename=stored_filename,
                 filePath=file_path,
@@ -82,7 +72,6 @@ class VideoAnalysisService:
                 analysisId=analysis_id
             ),
             analysisResult=AnalysisResultData(
-                resultId=result_id,
                 analysisId=analysis_id,
                 createdAt=start_time,
                 confidenceScore=Decimal(str(round(confidence_score, 4))),
@@ -99,42 +88,30 @@ class VideoAnalysisService:
     def _extract_video_info(self, file_path: str) -> dict:
         """영상 메타데이터 추출"""
         cap = cv2.VideoCapture(file_path)
-        
         fps = cap.get(cv2.CAP_PROP_FPS)
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         duration = frame_count / fps if fps > 0 else 0
-        
         cap.release()
-        
-        return {
-            'fps': fps,
-            'duration': duration,
-            'resolution': f"{width}X{height}",
-            'frame_count': frame_count
-        }
+        return {'fps': fps, 'duration': duration, 'resolution': f"{width}X{height}", 'frame_count': frame_count}
     
     def _analyze_frames(self, file_path: str, fps: float) -> List[FrameAnalysisData]:
         """프레임별 분석"""
         cap = cv2.VideoCapture(file_path)
         frame_analyses = []
         frame_number = 0
-        
-        # MVP: 1초에 1프레임만 샘플링
         sample_interval = int(fps) if fps > 0 else 30
         
         while cap.isOpened():
             ret, frame = cap.read()
-            if not ret:
-                break
+            if not ret: break
             
+            # 지정된 간격마다 프레임 분석 수행
             if frame_number % sample_interval == 0:
-                # 모델을 사용한 프레임 분석
                 is_suspicious, confidence, anomaly_type = self.model.analyze_frame(frame)
-                
                 frame_analyses.append(FrameAnalysisData(
-                    frameId=str(uuid.uuid4()),
+                    # ★ frameId 제거: DB에서 자동 생성할 예정
                     frameNumber=frame_number,
                     timestampSeconds=Decimal(str(round(frame_number / fps, 2))),
                     isDeepfake=is_suspicious,
@@ -142,40 +119,31 @@ class VideoAnalysisService:
                     anomalyType=anomaly_type,
                     features="{}"
                 ))
-            
             frame_number += 1
-        
+            
         cap.release()
         return frame_analyses
     
-    def _detect_deepfake(self, frame_analyses: List[FrameAnalysisData]) -> tuple:
-        """전체 영상 딥페이크 판정"""
-        if not frame_analyses:
+    def _detect_deepfake(self, frame_analyses):
+        """전체 영상 딥페이크 판정 논리"""
+        if not frame_analyses: 
             return False, 0.0
         
-        # 의심 프레임 비율 계산
-        suspicious_count = sum(1 for f in frame_analyses if f.isDeepfake)
-        confidence = suspicious_count / len(frame_analyses)
+        # 각 프레임의 confidence 평균 계산
+        avg_confidence = sum(float(f.confidenceScore) for f in frame_analyses) / len(frame_analyses)
         
-        # 30% 이상 의심 프레임이면 딥페이크로 판정
-        is_deepfake = confidence > 0.3
+        # 평균 confidence가 0.5 이상이면 딥페이크
+        is_deepfake = avg_confidence > 0.5
         
-        return is_deepfake, confidence
+        return is_deepfake, avg_confidence
     
     def _get_detected_techniques(self, frames: List[FrameAnalysisData]) -> str:
-        """탐지된 딥페이크 기법 목록"""
-        techniques = set()
-        for frame in frames:
-            if frame.isDeepfake and frame.anomalyType != "normal":
-                techniques.add(frame.anomalyType)
-        
+        """탐지된 딥페이크 기법 목록 정리"""
+        techniques = {frame.anomalyType for frame in frames if frame.isDeepfake and frame.anomalyType != "normal"}
         return ", ".join(sorted(techniques)) if techniques else "none"
     
-    def _generate_summary(self, is_deepfake: bool, confidence: float, frames: List[FrameAnalysisData]) -> str:
-        """분석 결과 요약 생성"""
+    def _generate_summary(self, is_deepfake, confidence, frames):
+        """분석 결과 요약 텍스트 생성"""
         if is_deepfake:
-            suspicious_frames = [f for f in frames if f.isDeepfake]
-            techniques = self._get_detected_techniques(frames)
-            return f"딥페이크 가능성 {confidence*100:.1f}% - {len(suspicious_frames)}개 프레임에서 의심 패턴 발견 ({techniques})"
-        else:
-            return f"정상 영상으로 판단 (신뢰도 {(1-confidence)*100:.1f}%)"
+            return f"딥페이크 가능성 높음 (평균 신뢰도 {confidence*100:.1f}%)"
+        return f"정상 영상으로 판단 (평균 신뢰도 {(1-confidence)*100:.1f}%)"

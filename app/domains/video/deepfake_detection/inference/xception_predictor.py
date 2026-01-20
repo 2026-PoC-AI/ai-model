@@ -4,10 +4,11 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from models.xception import XceptionNet
-from preprocessing.face_detector import FaceDetector
-from preprocessing.dataset import get_transforms
-from inference.utils import aggregate_predictions
+# 상대 경로로 수정
+from ..models.xception import XceptionNet
+from ..preprocessing.face_detector import FaceDetector
+from ..preprocessing.dataset import get_transforms
+from .utils import aggregate_predictions
 
 
 class XceptionPredictor:
