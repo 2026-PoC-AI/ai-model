@@ -1,3 +1,4 @@
+# app/core/config.py
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -12,9 +13,13 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     AUDIO_MODEL_PATH: str
-    VIDEO_MODEL_PATH: str
+    VIDEO_MODEL_PATH: str  # 기존 (사용 안 함)
     IMAGE_MODEL_PATH: str
     TEXT_MODEL_PATH: str
+    
+    # Video Deepfake Detection Models
+    XCEPTION_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/xception/xception_best_20260116.pth"
+    EFFICIENTNET_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/efficientnet/efficientnet_best_20260116.pth"
 
     IMAGE_WEIGHT_PATH: str = "app/domains/image/deepfake/weights/custom_xception.pth"
 

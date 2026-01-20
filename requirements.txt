@@ -8,7 +8,10 @@ numpy==1.26.3
 torch>=2.0.0
 torchvision>=0.15.0
 pillow>=9.0.0
-numpy>=1.24.0
 facenet-pytorch>=2.5.0
 tqdm>=4.65.0
 timm>=0.9.12
+
+# Video 분석용 추가
+opencv-python==4.8.1.78
+

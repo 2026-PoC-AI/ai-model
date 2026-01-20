@@ -1,16 +1,37 @@
 import cv2
 import numpy as np
+import torch
 from typing import List, Tuple
+from PIL import Image
+
+# 상대 경로로 수정
+from .deepfake_detection.inference.ensemble_predictor import EnsemblePredictor
+from .deepfake_detection.preprocessing.dataset import get_transforms
 
 class VideoModel:
     """영상 딥페이크 탐지 모델"""
     
-    def __init__(self):
-        # TODO: 실제 AI 모델 로드
-        # self.model = torch.load('deepfake_detector.pth')
-        # self.face_detector = MediaPipe.FaceDetection()
-        pass
-    
+    def __init__(self, xception_path: str, efficientnet_path: str, 
+                    ensemble_method: str = 'soft_voting', weights: List[float] = None,
+                    device: str = 'cuda'):
+        """
+        Args:
+            xception_path: XceptionNet 체크포인트 경로
+            efficientnet_path: EfficientNet-B4 체크포인트 경로
+            ensemble_method: 앙상블 방식 ('soft_voting', 'hard_voting')
+            weights: 앙상블 가중치 [w1, w2]
+            device: 사용할 디바이스
+        """
+        self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
+        self.ensemble_predictor = EnsemblePredictor(
+            xception_path=xception_path,
+            efficientnet_path=efficientnet_path,
+            weights=weights,
+            ensemble_method=ensemble_method,
+            device=str(self.device)
+        )
+        self.transform = get_transforms('val')
+        
     def analyze_frame(self, frame: np.ndarray) -> Tuple[bool, float, str]:
         """
         단일 프레임 분석
@@ -21,64 +42,106 @@ class VideoModel:
         Returns:
             (is_deepfake, confidence, anomaly_type)
         """
-        # TODO: 실제 딥페이크 탐지 로직
-        # 1. 얼굴 검출 (MediaPipe)
-        # 2. 얼굴 경계 분석
-        # 3. 블러링 패턴 검사
-        # 4. 색상 불일치 검사
+        # BGR to RGB 변환
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
-        # MVP용 더미 로직
-        import random
-        is_deepfake = random.random() < 0.15
-        confidence = random.uniform(0.65, 0.95) if is_deepfake else random.uniform(0.05, 0.35)
+        # PIL Image로 변환
+        pil_image = Image.fromarray(frame_rgb)
         
+        # 전처리 적용
+        input_tensor = self.transform(pil_image).unsqueeze(0).to(self.device)
+        
+        # 예측 수행
+        with torch.no_grad():
+            outputs = self.ensemble_predictor.model(input_tensor)
+            probabilities = torch.softmax(outputs, dim=1)[0]
+            
+            fake_prob = probabilities[1].item()
+            real_prob = probabilities[0].item()
+            
+            is_deepfake = fake_prob > 0.5
+            confidence = fake_prob if is_deepfake else real_prob
+        
+        # 이상 유형 결정
         if is_deepfake:
-            anomaly_types = [
-                "face_boundary_blur",
-                "lip_sync_mismatch", 
-                "frame_inconsistency",
-                "blink_pattern_abnormal"
-            ]
-            anomaly_type = random.choice(anomaly_types)
+            if fake_prob > 0.9:
+                anomaly_type = "high_confidence_fake"
+            elif fake_prob > 0.7:
+                anomaly_type = "face_boundary_blur"
+            else:
+                anomaly_type = "frame_inconsistency"
         else:
             anomaly_type = "normal"
         
         return is_deepfake, confidence, anomaly_type
     
-    def detect_face_boundary_issues(self, frame: np.ndarray) -> float:
-        """얼굴 경계 이상 탐지"""
-        # TODO: 실제 구현
-        # - 얼굴 영역 검출
-        # - 경계에서 블러 정도 측정
-        # - 색상 히스토그램 비교
-        return 0.0
-    
-    def detect_lipsync_mismatch(self, frame: np.ndarray, audio_features: dict) -> float:
-        """립싱크 불일치 탐지"""
-        # TODO: 실제 구현
-        # - 입 영역 검출
-        # - 음성 특징 추출
-        # - 입모양-음성 일치도 계산
-        return 0.0
-    
-    def detect_frame_inconsistency(self, current_frame: np.ndarray, prev_frame: np.ndarray) -> float:
-        """프레임 간 일관성 분석"""
-        # TODO: 실제 구현
-        # - 광학 흐름 분석
-        # - 픽셀 차이 계산
-        # - 얼굴 특징점 움직임 추적
-        return 0.0
-    
-    def detect_blink_pattern(self, frames: List[np.ndarray]) -> float:
-        """눈 깜빡임 패턴 분석"""
-        # TODO: 실제 구현
-        # - 눈 영역 검출
-        # - 깜빡임 빈도 계산
-        # - 패턴 규칙성 분석
-        return 0.0
+    def analyze_video(self, video_path: str, frame_interval: int = 30) -> dict:
+        """
+        비디오 전체 분석
+        
+        Args:
+            video_path: 비디오 파일 경로
+            frame_interval: 분석할 프레임 간격
+            
+        Returns:
+            분석 결과 딕셔너리
+        """
+        cap = cv2.VideoCapture(video_path)
+        
+        if not cap.isOpened():
+            raise ValueError(f"Cannot open video: {video_path}")
+        
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        
+        results = []
+        frame_idx = 0
+        
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            # 지정된 간격마다 프레임 분석
+            if frame_idx % frame_interval == 0:
+                is_deepfake, confidence, anomaly_type = self.analyze_frame(frame)
+                results.append({
+                    'frame_idx': frame_idx,
+                    'timestamp': frame_idx / fps,
+                    'is_deepfake': is_deepfake,
+                    'confidence': confidence,
+                    'anomaly_type': anomaly_type
+                })
+            
+            frame_idx += 1
+        
+        cap.release()
+        
+        # 전체 비디오 판단
+        fake_count = sum(1 for r in results if r['is_deepfake'])
+        fake_ratio = fake_count / len(results) if results else 0
+        avg_confidence = sum(r['confidence'] for r in results) / len(results) if results else 0
+        
+        video_result = {
+            'video_path': video_path,
+            'total_frames': total_frames,
+            'analyzed_frames': len(results),
+            'fake_frame_ratio': fake_ratio,
+            'average_confidence': avg_confidence,
+            'is_deepfake_video': fake_ratio > 0.5,
+            'frame_results': results
+        }
+        
+        return video_result
 
-def load_video_model() -> VideoModel:
+def load_video_model(xception_path: str, efficientnet_path: str, 
+                    ensemble_method: str = 'soft_voting',
+                    weights: List[float] = None) -> VideoModel:
     """영상 분석 모델 로드"""
-    model = VideoModel()
-    # TODO: 실제 모델 가중치 로드
+    model = VideoModel(
+        xception_path=xception_path,
+        efficientnet_path=efficientnet_path,
+        ensemble_method=ensemble_method,
+        weights=weights
+    )
     return model

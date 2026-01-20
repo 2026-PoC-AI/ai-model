@@ -1,4 +1,4 @@
-from models.base import DeepfakeDetector
+from .base import DeepfakeDetector
 
 class XceptionNet(DeepfakeDetector):
     """
