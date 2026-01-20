@@ -24,7 +24,7 @@ def load_xception_model():
     _model = model
     return _model
 
-def predict_xception(image_bytes: bytes) -> dict:
+def predict_xception(image_bytes: bytes) -> float:
     model = load_xception_model()
     x = preprocess_image(image_bytes).to(_DEVICE)
 
@@ -32,15 +32,4 @@ def predict_xception(image_bytes: bytes) -> dict:
         logit = model(x)
         prob = torch.sigmoid(logit).item()
 
-    # label rule (너 정책 유지)
-    if prob >= 0.7:
-        label = "FAKE"
-    elif prob <= 0.3:
-        label = "REAL"
-    else:
-        label = "UNCERTAIN"
-
-    return {
-        "label": label,
-        "confidence": round(prob, 4),
-    }
+    return round(prob, 4)
