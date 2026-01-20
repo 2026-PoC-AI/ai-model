@@ -4,7 +4,6 @@ from datetime import datetime
 from decimal import Decimal
 
 class VideoFileData(BaseModel):
-    fileId: str
     originalFilename: str
     storedFilename: Optional[str] = None
     filePath: Optional[str] = None
@@ -14,11 +13,10 @@ class VideoFileData(BaseModel):
     format: str
     fps: Optional[Decimal] = None
     uploadedAt: Optional[datetime] = None
-    analysisId: str
+    analysisId: int # 어떤 분석에 대한 파일인지 식별용
 
 class AnalysisResultData(BaseModel):
-    resultId: str
-    analysisId: str
+    analysisId: int # 식별용
     createdAt: datetime
     confidenceScore: Decimal
     isDeepfake: bool
@@ -29,7 +27,6 @@ class AnalysisResultData(BaseModel):
     analyzedAt: datetime
 
 class FrameAnalysisData(BaseModel):
-    frameId: str
     frameNumber: int
     timestampSeconds: Decimal
     isDeepfake: bool
@@ -38,8 +35,7 @@ class FrameAnalysisData(BaseModel):
     features: str
 
 class VideoAnalysisResponse(BaseModel):
-    """ERD 기반 전체 응답 - Spring Boot와 완전히 일치"""
-    analysisId: str
+    analysisId: int
     title: str
     status: str
     createdAt: datetime

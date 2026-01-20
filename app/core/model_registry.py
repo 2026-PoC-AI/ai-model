@@ -2,6 +2,7 @@
 import logging
 from fastapi import FastAPI
 
+from app.core.config import settings
 from app.domains.audio.model import load_audio_model
 from app.domains.video.model import load_video_model
 from app.domains.image.model import load_image_model
@@ -14,7 +15,12 @@ async def init_models(app: FastAPI) -> None:
     logger.info("Loading models...")
 
     app.state.models["audio"] = load_audio_model()
-    app.state.models["video"] = load_video_model()
+    app.state.models["video"] = load_video_model(
+        xception_path=settings.XCEPTION_MODEL_PATH,
+        efficientnet_path=settings.EFFICIENTNET_MODEL_PATH,
+        ensemble_method='soft_voting',
+        weights=[0.5, 0.5]
+    )
     app.state.models["image"] = load_image_model()
     app.state.models["text"] = load_text_model()
 

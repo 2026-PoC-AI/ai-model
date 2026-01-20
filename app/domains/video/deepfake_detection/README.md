@@ -29,12 +29,11 @@ data/
 
 ### 3. 전처리
 ```bash
+# Git Bash에서 PYTHONPATH 설정해서 실행
 cd ~/Desktop/ai-model
-
-# PYTHONPATH 설정해서 실행
-PYTHONPATH=app/domains/video/deepfake_detection python app/domains/video/deepfake_detection/preprocessing/prepare_data_simple.py
-
-PYTHONPATH=app/domains/video/deepfake_detection python app/domains/video/deepfake_detection/preprocessing/prepare_data.py
+conda activate ai-model
+pip install opencv-python facenet-pytorch torch torchvision tqdm scikit-learn pillow numpy timm
+python app/domains/video/deepfake_detection/preprocessing/prepare_data_simple.py
 ```
 
 ## 주의사항
