@@ -258,6 +258,14 @@ class Trainer:
         """
         os.makedirs(self.config.save_dir, exist_ok=True)
         
+        # 파일명에 모델명과 날짜 포함
+        if filename == 'best_model.pth':
+            filename = f'{self.config.model_name}_best_{self.config.date_str}.pth'
+        else:
+            # checkpoint_epoch_5.pth -> xception_checkpoint_epoch_5_20260115.pth
+            epoch_num = filename.split('_')[-1].replace('.pth', '')
+            filename = f'{self.config.model_name}_checkpoint_epoch_{epoch_num}_{self.config.date_str}.pth'
+        
         checkpoint = {
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
@@ -294,7 +302,10 @@ class Trainer:
                 metrics_copy['confusion_matrix'] = metrics_copy['confusion_matrix'].tolist()
             history_to_save['val_metrics'].append(metrics_copy)
         
-        filepath = os.path.join(self.config.save_dir, 'training_history.json')
+        # 파일명에 모델명과 날짜 포함
+        filename = f'{self.config.model_name}_training_history_{self.config.date_str}.json'
+        filepath = os.path.join(self.config.save_dir, filename)
+        
         with open(filepath, 'w') as f:
             json.dump(history_to_save, f, indent=2)
         

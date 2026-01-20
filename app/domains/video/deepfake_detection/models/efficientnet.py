@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torchvision import models
+from .base import DeepfakeDetector
 
 class EfficientNetB4(nn.Module):
     """

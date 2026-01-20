@@ -8,11 +8,16 @@ class FaceDetector:
     얼굴 검출 및 정렬 클래스
     MTCNN을 사용해 얼굴을 검출하고 랜드마크 기반으로 정렬
     """
-    def __init__(self, device='cuda'):
-        self.device = device
+    def __init__(self, device=None):
+        # device가 None이면 자동 선택
+        if device is None:
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        else:
+            self.device = device
+            
         self.mtcnn = MTCNN(
             keep_all=False,
-            device=device,
+            device=self.device,
             min_face_size=20,
             thresholds=[0.6, 0.7, 0.7],
             post_process=False
@@ -76,7 +81,7 @@ class FaceDetector:
         
         # 두 눈 사이 중심점
         eyes_center = ((left_eye[0] + right_eye[0]) / 2,
-                      (left_eye[1] + right_eye[1]) / 2)
+                        (left_eye[1] + right_eye[1]) / 2)
         
         # 회전 변환 행렬
         M = cv2.getRotationMatrix2D(eyes_center, angle, scale=1.0)

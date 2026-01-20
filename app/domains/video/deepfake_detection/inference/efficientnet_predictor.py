@@ -1,8 +1,8 @@
 import torch
 import torch.nn.functional as F
-from models.efficientnet import EfficientNetB4
-from preprocessing.face_detector import FaceDetector
-from preprocessing.dataset import get_transforms
+from ..models.efficientnet import EfficientNetB4
+from ..preprocessing.face_detector import FaceDetector
+from ..preprocessing.dataset import get_transforms
 from .utils import aggregate_predictions
 import cv2
 import numpy as np

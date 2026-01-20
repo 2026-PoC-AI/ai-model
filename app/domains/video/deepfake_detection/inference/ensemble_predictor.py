@@ -4,13 +4,13 @@ import cv2
 import numpy as np
 from PIL import Image
 
-# 상대 경로 import (deepfake_detection 모듈 기준)
-from models.ensemble import EnsembleModel
-from models.xception import XceptionNet
-from models.efficientnet import EfficientNetB4
-from preprocessing.face_detector import FaceDetector
-from preprocessing.dataset import get_transforms
-from inference.utils import aggregate_predictions
+# 상대 경로
+from ..models.ensemble import EnsembleModel
+from ..models.xception import XceptionNet
+from ..models.efficientnet import EfficientNetB4
+from ..preprocessing.face_detector import FaceDetector
+from ..preprocessing.dataset import get_transforms
+from .utils import aggregate_predictions
 
 class EnsemblePredictor:
     """
@@ -30,7 +30,7 @@ class EnsemblePredictor:
         
         # XceptionNet 로드
         print(f"Loading XceptionNet from {xception_path}")
-        xception_ckpt = torch.load(xception_path, map_location=self.device)
+        xception_ckpt = torch.load(xception_path, map_location=self.device, weights_only=False)
         xception_config = xception_ckpt.get('config', {})
         xception_model = XceptionNet(
             num_classes=xception_config.get('num_classes', 2),
@@ -41,7 +41,7 @@ class EnsemblePredictor:
         
         # EfficientNet-B4 로드
         print(f"Loading EfficientNet-B4 from {efficientnet_path}")
-        efficientnet_ckpt = torch.load(efficientnet_path, map_location=self.device)
+        efficientnet_ckpt = torch.load(efficientnet_path, map_location=self.device, weights_only=False)
         efficientnet_config = efficientnet_ckpt.get('config', {})
         efficientnet_model = EfficientNetB4(
             num_classes=efficientnet_config.get('num_classes', 2),
