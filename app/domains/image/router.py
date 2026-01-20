@@ -1,25 +1,20 @@
-# app/domains/image/router.py
-from fastapi import APIRouter, UploadFile, File, Request
+from fastapi import APIRouter, Request
+from pydantic import BaseModel, Field
 from app.common.responses import ok, ApiResponse
-from app.domains.image.schemas import ImageAnalyzeResponse
 from app.domains.image.service import analyze_image
-from app.core.s3 import s3_client
 
 router = APIRouter()
 
-@router.post("/analyze", response_model=ApiResponse[ImageAnalyzeResponse])
-async def analyze(request: Request, file: UploadFile = File(...)):
+class ImageAnalyzeRequest(BaseModel):
+    job_uuid: str = Field(..., description="job uuid from Spring")
+    s3_key: str = Field(..., description="S3 object key for image file")
+
+@router.post("/analyze", response_model=ApiResponse[dict])
+async def analyze(request: Request, body: ImageAnalyzeRequest):
     rid = request.state.request_id
-    content = await file.read()
-
-    result = analyze_image(request, content)
-    return ok(result, request_id=rid)
-
-@router.post("/test-s3")
-async def test_s3():
-    s3_client.upload_bytes(
-        key="test/api/from-fastapi.txt",
-        data=b"uploaded from api",
-        content_type="text/plain",
+    result = analyze_image(
+        request=request,
+        job_uuid=body.job_uuid,
+        s3_key=body.s3_key,
     )
-    return {"ok": True}
+    return ok(result, request_id=rid)

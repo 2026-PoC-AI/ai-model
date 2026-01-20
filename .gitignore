@@ -234,3 +234,13 @@ domains/video/deepfake_detection/weights/*.pt
 # 프레임 추출 후 전처리된 이미지 파일
 app/domains/video/data/processed/*
 !app/domains/video/data/processed/.gitkeep
+
+
+
+## image Session
+
+# DATA
+app/domains/image/deepfake/weights/
+
+# yaml파일
+*.yaml

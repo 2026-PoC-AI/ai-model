@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     XCEPTION_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/xception/xception_best_20260116.pth"
     EFFICIENTNET_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/efficientnet/efficientnet_best_20260116.pth"
 
+    IMAGE_WEIGHT_PATH: str = "app/domains/image/deepfake/weights/custom_xception.pth"
+
     USE_GPU: bool = False
     GPU_DEVICE_ID: int = 0
 
