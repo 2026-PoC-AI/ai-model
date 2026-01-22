@@ -15,4 +15,5 @@ requests>=2.31.0
 
 # Video 분석용 추가
 opencv-python==4.8.1.78
-
+# Video 분석용 추가(Mac용)
+opencv-python-headless
