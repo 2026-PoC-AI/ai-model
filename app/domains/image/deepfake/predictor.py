@@ -33,3 +33,11 @@ def predict_xception(image_bytes: bytes) -> float:
         prob = torch.sigmoid(logit).item()
 
     return round(prob, 4)
+
+def forward_logit(input_tensor: torch.Tensor) -> torch.Tensor:
+    """
+    input_tensor: (1,3,H,W) on _DEVICE
+    return: logits (same as model output)
+    """
+    model = load_xception_model()
+    return model(input_tensor)
