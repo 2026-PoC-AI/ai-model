@@ -1,3 +1,6 @@
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE' # OpenMP 라이브러리 충돌 방지
+
 #  CNN-LSTM - 비디오 시퀀스
 import argparse
 import sys
@@ -13,8 +16,6 @@ import torch.optim as optim
 from tqdm import tqdm
 import json
 from datetime import datetime
-import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE' # OpenMP 라이브러리 충돌 방지
 
 from models.cnn_lstm import get_model
 from utils.data_loader import get_data_loaders
@@ -253,7 +254,7 @@ class VideoTrainer:
             if is_best:
                 self.best_val_acc = val_acc
                 self.patience_counter = 0  # Reset
-                print(f"  ✓ New best validation accuracy!")
+                print(f"  * New best validation accuracy!")
             else:
                 self.patience_counter += 1
                 print(f"  Patience: {self.patience_counter}/{self.patience}")
