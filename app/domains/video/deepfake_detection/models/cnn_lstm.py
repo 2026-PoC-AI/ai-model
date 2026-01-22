@@ -74,13 +74,13 @@ class ResNetLSTM(nn.Module):
     """
     경량화된 ResNet18 + LSTM 모델
     """
-    def __init__(self, num_classes=2, hidden_size=256, num_layers=1, dropout=0.3, pretrained=True):
+    def __init__(self, num_classes=2, hidden_size=256, num_layers=1, dropout=0.5, pretrained=True):  # 0.3 → 0.5
         super(ResNetLSTM, self).__init__()
         
         # CNN Feature Extractor (ResNet18)
         resnet = models.resnet18(pretrained=pretrained)
         self.cnn = nn.Sequential(*list(resnet.children())[:-1])
-        self.cnn_output_size = 512  # ResNet18의 출력 차원
+        self.cnn_output_size = 512
         
         # LSTM
         self.lstm = nn.LSTM(
@@ -94,7 +94,7 @@ class ResNetLSTM(nn.Module):
         
         # Classifier
         self.fc = nn.Sequential(
-            nn.Dropout(dropout),
+            nn.Dropout(dropout),  # 0.3 → 0.5
             nn.Linear(hidden_size, num_classes)
         )
     

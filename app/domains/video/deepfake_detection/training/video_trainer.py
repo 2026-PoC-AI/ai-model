@@ -14,6 +14,7 @@ from tqdm import tqdm
 import json
 from datetime import datetime
 import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE' # OpenMP 라이브러리 충돌 방지
 
 from models.cnn_lstm import get_model
 from utils.data_loader import get_data_loaders
@@ -88,7 +89,9 @@ class VideoTrainer:
             'val_acc': []
         }
         self.best_val_acc = 0.0
-        
+        self.patience = 5  # Early Stopping
+        self.patience_counter = 0
+
         # 체크포인트 디렉토리
         self.checkpoint_dir = Path(config['checkpoint_dir'])
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -170,6 +173,9 @@ class VideoTrainer:
         """
         체크포인트 저장
         """
+        # 현재 날짜/시간 추가
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
         checkpoint = {
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
@@ -178,20 +184,26 @@ class VideoTrainer:
             'train_loss': train_loss,
             'val_loss': val_loss,
             'val_acc': val_acc,
-            'config': self.config
+            'config': self.config,
+            'timestamp': timestamp  # 추가
         }
         
-        # 에포크별 체크포인트
+        # 에포크별 체크포인트 - 날짜 포함
         if epoch % self.config['save_interval'] == 0:
-            checkpoint_path = self.checkpoint_dir / f'checkpoint_epoch_{epoch}.pth'
+            checkpoint_path = self.checkpoint_dir / f'checkpoint_epoch_{epoch}_{timestamp}.pth'
             torch.save(checkpoint, checkpoint_path)
             print(f"Checkpoint saved: {checkpoint_path}")
         
-        # Best 모델 저장
+        # Best 모델 저장 - 날짜 포함
         if is_best:
-            best_path = self.checkpoint_dir / 'best_model.pth'
+            best_path = self.checkpoint_dir / f'best_model_{timestamp}.pth'
             torch.save(checkpoint, best_path)
             print(f"Best model saved: {best_path} (acc: {val_acc:.2f}%)")
+            
+            # 가장 최신 best 모델 링크 (선택사항)
+            latest_best = self.checkpoint_dir / 'best_model_latest.pth'
+            torch.save(checkpoint, latest_best)
+            print(f"Latest best link updated: {latest_best}")
     
     def train(self):
         """
@@ -203,6 +215,9 @@ class VideoTrainer:
         print(f"Epochs: {self.config['num_epochs']}")
         print(f"Batch size: {self.config['batch_size']}")
         print(f"Learning rate: {self.config['learning_rate']}")
+        print(f"Weight decay: {self.config['weight_decay']}")  # 추가
+        print(f"Dropout: {self.config['dropout']}")  # 추가
+        print(f"Patience: {self.patience}")  # 추가
         
         start_time = datetime.now()
         
@@ -233,20 +248,45 @@ class VideoTrainer:
             self.history['val_loss'].append(val_loss)
             self.history['val_acc'].append(val_acc)
             
-            # 체크포인트 저장
+            # 체크포인트 저장 및 Early Stopping
             is_best = val_acc > self.best_val_acc
             if is_best:
                 self.best_val_acc = val_acc
+                self.patience_counter = 0  # Reset
+                print(f"  ✓ New best validation accuracy!")
+            else:
+                self.patience_counter += 1
+                print(f"  Patience: {self.patience_counter}/{self.patience}")
             
             self.save_checkpoint(epoch, train_loss, val_loss, val_acc, is_best=is_best)
-        
+            
+            # Early Stopping 체크
+            if self.patience_counter >= self.patience:
+                print(f"\n{'='*50}")
+                print(f"Early Stopping triggered at epoch {epoch}")
+                print(f"No improvement for {self.patience} consecutive epochs")
+                print(f"Best validation accuracy: {self.best_val_acc:.2f}%")
+                print(f"{'='*50}")
+                break
+                
         end_time = datetime.now()
         training_time = end_time - start_time
         
-        # Training history 저장
-        history_path = self.checkpoint_dir / 'training_history.json'
+        # Training history 저장 - 날짜 포함
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        history_path = self.checkpoint_dir / f'training_history_{timestamp}.json'
+        
+        # 추가 정보 포함
+        history_to_save = {
+            'history': self.history,
+            'best_val_acc': self.best_val_acc,
+            'total_time': str(training_time),
+            'config': self.config,
+            'timestamp': timestamp
+        }
+        
         with open(history_path, 'w') as f:
-            json.dump(self.history, f, indent=2)
+            json.dump(history_to_save, f, indent=2)
         
         print(f"\n{'='*50}")
         print("Training Completed!")
@@ -264,7 +304,7 @@ if __name__ == "__main__":
                         help='Model architecture')
     parser.add_argument('--batch_size', type=int, default=8,
                         help='Batch size')
-    parser.add_argument('--epochs', type=int, default=30,
+    parser.add_argument('--epochs', type=int, default=50,  # 30 → 50
                         help='Number of epochs')
     parser.add_argument('--lr', type=float, default=0.0001,
                         help='Learning rate')
@@ -272,7 +312,7 @@ if __name__ == "__main__":
                         help='LSTM hidden size')
     parser.add_argument('--num_layers', type=int, default=1,
                         help='Number of LSTM layers')
-    parser.add_argument('--dropout', type=float, default=0.3,
+    parser.add_argument('--dropout', type=float, default=0.5,  # 0.3 → 0.5
                         help='Dropout rate')
     parser.add_argument('--device', type=str, default='cuda',
                         choices=['cuda', 'cpu'],
@@ -290,7 +330,7 @@ if __name__ == "__main__":
         'batch_size': args.batch_size,
         'num_epochs': args.epochs,
         'learning_rate': args.lr,
-        'weight_decay': 0.0001,
+        'weight_decay': 0.001,  # 0.0001 → 0.001 (10배 증가)
         'hidden_size': args.hidden_size,
         'num_layers': args.num_layers,
         'dropout': args.dropout,
@@ -299,7 +339,7 @@ if __name__ == "__main__":
         'device': args.device,
         'num_workers': args.num_workers,
         'save_interval': args.save_interval,
-        'checkpoint_dir': './checkpoints/frames_16'
+        'checkpoint_dir': './weights/cnn-lstm/improved'  # 경로 변경
     }
     
     # Trainer 생성 및 학습
