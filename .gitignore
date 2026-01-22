@@ -56,6 +56,7 @@ cover/
 *.pot
 
 # Django stuff:
+logs/
 *.log
 local_settings.py
 db.sqlite3
@@ -244,3 +245,26 @@ app/domains/image/deepfake/weights/
 
 # yaml파일
 *.yaml
+
+# TensorBoard
+events.out.tfevents.*
+
+# Jupyter Notebook outputs
+*.ipynb_checkpoints/
+
+# Training checkpoints (이미 있지만 구체화)
+checkpoints/
+experiments/
+outputs/
+
+# Dataset splits
+data/splits/*.txt
+data/splits/*.json
+
+# Cached datasets
+data/cache/
+*.cache
+
+# Temporary files
+tmp/
+temp/
