@@ -238,7 +238,7 @@ app/domains/video/data/processed/*
 
 
 
-## image Session
+## Image Session
 
 # DATA
 app/domains/image/deepfake/weights/
@@ -268,3 +268,29 @@ data/cache/
 # Temporary files
 tmp/
 temp/
+
+
+## Audio Session
+
+# Audio Deepfake Detection Data
+domains/audio/data/raw/
+domains/audio/data/processed/
+
+# Audio model weights
+domains/audio/deepfake_detection/weights/*.pth
+domains/audio/deepfake_detection/weights/*.pt
+
+# Audio files
+*.wav
+*.flac
+*.mp3
+*.ogg
+*.m4a
+
+# Preprocessed spectrograms (이미 위에 있지만 명시)
+# *.npy
+# *.npz
+
+# Audio processing cache
+# .cache/
+# *.cache
