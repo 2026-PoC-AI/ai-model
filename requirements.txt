@@ -15,4 +15,4 @@ timm>=0.9.12
 # Video 분석용 추가
 opencv-python==4.8.1.78
 
-# pip install -r requirements.txt
+# pip install -r requirements
