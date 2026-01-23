@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
-import numpy as np
-from tqdm import tqdm
+import argparse
 
 def parse_protocol_file(protocol_file):
     """
@@ -28,32 +27,48 @@ def parse_protocol_file(protocol_file):
     
     return data
 
-def create_splits(data_dir, output_file):
+def create_splits(raw_dir, output_file):
     """
     ASVspoof 프로토콜 파일을 splits.json으로 변환
     """
-    data_dir = Path(data_dir)
-    protocol_dir = data_dir / 'ASVspoof2019_LA_asv_protocols'
+    raw_dir = Path(raw_dir)
+    protocol_dir = raw_dir / 'ASVspoof2019_LA_cm_protocols'
+    
+    if not protocol_dir.exists():
+        print(f"Error: Protocol directory not found: {protocol_dir}")
+        return None
     
     splits = {}
     
     # Train
     print("Parsing train protocol...")
-    train_protocol = protocol_dir / 'ASVspoof2019.LA.asv.train.gi.trl.txt'
-    splits['train'] = parse_protocol_file(train_protocol)
-    print(f"Train - Real: {len(splits['train']['real'])}, Fake: {len(splits['train']['fake'])}")
+    train_protocol = protocol_dir / 'ASVspoof2019.LA.cm.train.trn.txt'
+    if train_protocol.exists():
+        splits['train'] = parse_protocol_file(train_protocol)
+        print(f"Train - Real: {len(splits['train']['real'])}, Fake: {len(splits['train']['fake'])}")
+    else:
+        print(f"Warning: Train protocol not found: {train_protocol}")
+        splits['train'] = {'real': [], 'fake': []}
     
     # Dev (Validation)
     print("Parsing dev protocol...")
-    dev_protocol = protocol_dir / 'ASVspoof2019.LA.asv.dev.gi.trl.txt'
-    splits['val'] = parse_protocol_file(dev_protocol)
-    print(f"Val - Real: {len(splits['val']['real'])}, Fake: {len(splits['val']['fake'])}")
+    dev_protocol = protocol_dir / 'ASVspoof2019.LA.cm.dev.trl.txt'
+    if dev_protocol.exists():
+        splits['val'] = parse_protocol_file(dev_protocol)
+        print(f"Val - Real: {len(splits['val']['real'])}, Fake: {len(splits['val']['fake'])}")
+    else:
+        print(f"Warning: Dev protocol not found: {dev_protocol}")
+        splits['val'] = {'real': [], 'fake': []}
     
     # Eval (Test)
     print("Parsing eval protocol...")
-    eval_protocol = protocol_dir / 'ASVspoof2019.LA.asv.eval.gi.trl.txt'
-    splits['test'] = parse_protocol_file(eval_protocol)
-    print(f"Test - Real: {len(splits['test']['real'])}, Fake: {len(splits['test']['fake'])}")
+    eval_protocol = protocol_dir / 'ASVspoof2019.LA.cm.eval.trl.txt'
+    if eval_protocol.exists():
+        splits['test'] = parse_protocol_file(eval_protocol)
+        print(f"Test - Real: {len(splits['test']['real'])}, Fake: {len(splits['test']['fake'])}")
+    else:
+        print(f"Warning: Eval protocol not found: {eval_protocol}")
+        splits['test'] = {'real': [], 'fake': []}
     
     # 저장
     output_file = Path(output_file)
@@ -67,7 +82,19 @@ def create_splits(data_dir, output_file):
     return splits
 
 if __name__ == "__main__":
-    data_dir = Path(__file__).parent.parent.parent / 'data' / 'raw' / 'LA'
-    output_file = Path(__file__).parent.parent.parent / 'data' / 'splits' / 'splits.json'
+    parser = argparse.ArgumentParser(description='Prepare ASVspoof dataset splits')
+    parser.add_argument('--raw_dir', type=str, 
+                       default='../../data/raw/LA',
+                       help='Raw data directory containing protocol files')
+    parser.add_argument('--output_file', type=str,
+                       default='../../data/splits/splits.json',
+                       help='Output splits JSON file')
     
-    create_splits(data_dir, output_file)
+    args = parser.parse_args()
+    
+    # 상대 경로를 절대 경로로 변환
+    script_dir = Path(__file__).parent
+    raw_dir = (script_dir / args.raw_dir).resolve()
+    output_file = (script_dir / args.output_file).resolve()
+    
+    create_splits(raw_dir, output_file)
