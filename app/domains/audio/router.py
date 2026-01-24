@@ -1,5 +1,6 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException, Form, Request
 import logging
+from typing import Optional
 
 from .service import AudioAnalysisService
 from .schemas import AudioAnalysisResponse, HealthCheckResponse
@@ -9,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 @router.post("/analyze", response_model=AudioAnalysisResponse)
 async def analyze_audio(
-    request: Request,  # ⭐ 이게 핵심
+    request: Request,
     file: UploadFile = File(...),
-    analysis_id: int = Form(...)
+    analysis_id: Optional[int] = Form(0)
 ):
     """
     오디오 딥페이크 분석 엔드포인트
