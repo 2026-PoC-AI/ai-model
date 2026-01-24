@@ -1,8 +1,10 @@
 # app/core/config.py
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env", populate_by_name=True)
 
     APP_NAME: str
     APP_ENV: str
@@ -39,5 +41,9 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str
     AWS_REGION: str
     AWS_BUCKET_NAME: str
+
+    #Naver API
+    naver_client_id: str = Field(default="", alias="NAVER_CLIENT_ID")
+    naver_client_secret: str = Field(default="", alias="NAVER_CLIENT_SECRET")
 
 settings = Settings()
