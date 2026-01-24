@@ -1,6 +1,15 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
+# --- [추가] NumPy 2.0 호환성 패치 시작 ---
+import numpy as np
+if int(np.__version__.split('.')[0]) >= 2:
+    if not hasattr(np, "float_"): np.float_ = float
+    if not hasattr(np, "bool_"): np.bool_ = bool
+    if not hasattr(np, "int_"): np.int_ = int
+# --- [추가] 패치 끝 ---
+
+
 import uvicorn
 from fastapi import FastAPI
 

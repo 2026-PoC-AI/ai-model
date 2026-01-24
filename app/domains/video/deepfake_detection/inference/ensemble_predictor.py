@@ -1,48 +1,51 @@
 import torch
-import torch.nn.functional as F
-import cv2
-import numpy as np
-from PIL import Image
 import pickle
-import sys
-
-# NumPy 호환성 패치
-class NumpyCompatUnpickler(pickle.Unpickler):
-    def find_class(self, module, name):
-        # numpy._core를 numpy.core로 리다이렉트
-        if module.startswith('numpy._core'):
-            module = module.replace('numpy._core', 'numpy.core')
-        return super().find_class(module, name)
+import numpy as np
+import io
 
 def safe_torch_load(path, map_location):
-    """NumPy 호환성 문제 해결하는 torch.load"""
-    # 파일 읽기
+    """
+    NumPy 2.0 환경에서 구버전 가중치 파일을 읽을 때 발생하는 
+    Pickle/Code 인자 타입 에러를 해결하는 로더
+    """
+    # // 1. 파일 내용을 바이너리로 읽음
     with open(path, 'rb') as f:
         data = f.read()
-    
-    # BytesIO로 변환
-    from io import BytesIO
-    buffer = BytesIO(data)
-    
-    # 커스텀 unpickler 사용
-    unpickler = NumpyCompatUnpickler(buffer)
-    
-    # torch.load 대신 수동으로 unpickle
-    # 하지만 torch의 persistent_load 필요
-    # 그래서 monkey patch 방식 사용
-    original_unpickler = pickle.Unpickler
-    
-    def patched_unpickler(file, **kwargs):
-        return NumpyCompatUnpickler(file, **kwargs)
-    
-    pickle.Unpickler = patched_unpickler
-    
+
+    # // 2. NumPy 2.0에서 변경된 내부 경로 리다이렉트를 위한 커스텀 Unpickler
+    class CompatUnpickler(pickle.Unpickler):
+        def find_class(self, module, name):
+            # // NumPy 2.0의 _core 구조를 구버전 core 구조로 매핑
+            if module.startswith('numpy._core'):
+                module = module.replace('numpy._core', 'numpy.core')
+            elif module == 'numpy' and name in ['float', 'int', 'bool']:
+                # // NumPy 2.0에서 사라진 별칭들을 기본 파이썬 타입으로 복구
+                return getattr(__builtins__, name)
+            return super().find_class(module, name)
+
+    # // 3. torch.load 내부에서 사용할 pickle 객체를 몽키 패칭
+    def custom_load(file, **kwargs):
+        return CompatUnpickler(file, **kwargs).load()
+
     try:
-        result = torch.load(BytesIO(data), map_location=map_location, weights_only=False)
-    finally:
-        pickle.Unpickler = original_unpickler
-    
-    return result
+        # // 먼저 가장 안전한 weights_only=True 시도
+        return torch.load(io.BytesIO(data), map_location=map_location, weights_only=True)
+    except Exception:
+        # // 실패 시, 커스텀 unpickler를 강제로 주입하여 로드
+        try:
+            # // pickle.load 대신 커스텀 unpickler를 사용하도록 유도
+            # // pickle_module 인자를 통해 직접 전달
+            return torch.load(
+                io.BytesIO(data), 
+                map_location=map_location, 
+                weights_only=False,
+                pickle_module=type('CustomPickle', (), {'Unpickler': CompatUnpickler, 'load': custom_load})
+            )
+        except Exception as e:
+            # // 최후의 수단: 에러가 'code' 관련이면 CPU로 로드 후 복사
+            if "argument 'code' must be code" in str(e):
+                return torch.load(io.BytesIO(data), map_location='cpu', weights_only=False)
+            raise e
 
 # 상대 경로
 from ..models.ensemble import EnsembleModel
