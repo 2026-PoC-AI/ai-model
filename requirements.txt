@@ -24,6 +24,6 @@ opencv-python-headless
 # Audio 분석용
 librosa>=0.10.0
 
-#text
+# text
 transformers>=4.40.0
 tokenizers>=0.15.0
