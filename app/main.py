@@ -9,7 +9,10 @@ from app.core.request_id import RequestIdMiddleware
 from app.common.exceptions import register_exception_handlers
 from app.api.v1.router import router as v1_router
 from app.core.model_registry import init_models, close_models
+from app.domains.text.fake_news.predictor import KlueBertFakeNewsPredictor
+from app.domains.text.service import TextService
 from app.core.config import settings
+
 
 def create_app() -> FastAPI:
     setup_logging()
@@ -28,6 +31,21 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     async def _startup():
         await init_models(app)
+
+        fake_news_predictor = KlueBertFakeNewsPredictor(
+            state_dict_path="app/domains/text/fake_news/weights/model_state_dict.pth", 
+            num_labels=2,
+                        id2label={0: "FAKE", 1: "REAL"},
+                        max_length=256,
+        )
+
+        text_service = TextService(fake_news_predictor=fake_news_predictor)
+
+        # FastAPI 전역 상태에 등록
+        app.state.text_service = text_service
+
+        print(" Text FakeNews model loaded (KLUE-BERT)")
+
 
     @app.on_event("shutdown")
     async def _shutdown():

@@ -1,43 +1,47 @@
-# app/domains/text/fake_news/service.py
-from .predictor import FakeNewsPredictor
+from __future__ import annotations
+from typing import List, Optional
 
-def get_evidence_sentences(text: str, predictor: FakeNewsPredictor, top_n: int = 2):
-    # 문장 단위로 쪼개서 각 문장의 '의심 점수' 계산
-    sentences = [s.strip() for s in text.split('.') if len(s.strip()) > 10]
-    if not sentences: return [text]
-    
-    scored_sentences = []
-    for sent in sentences:
-        prob = predictor.predict_proba(sent)
-        scored_sentences.append((sent, prob))
-    
-    # 점수 높은 문장 상위 N개
-    scored_sentences.sort(key=lambda x: x[1], reverse=True)
-    return [s[0] for s in scored_sentences[:top_n]]
+from .fake_news.predictor import KlueBertFakeNewsPredictor, FakeNewsPrediction
+from .schemas import TextAnalyzeResponse, TextEvidence, TextHighlight, TextReference
 
-def analyze_fake_news(text: str, predictor: FakeNewsPredictor):
-    prob = predictor.predict_proba(text)
-    score = round(prob * 100, 2)
-    label = 1 if prob >= 0.5 else 0
-    
-    # 신뢰 등급 산출
-    if score >= 70: level = "HIGH"
-    elif score >= 40: level = "MID"
-    else: level = "LOW"
-    
-    # 증거 데이터 추출
-    keywords = predictor.get_top_features(text)
-    sentences = get_evidence_sentences(text, predictor)
-    
-    # 사용자 메시지 구성
-    msg = f"분석 결과 가짜뉴스 확률이 {score}%로 의심됩니다."
-    if label == 1:
-        msg += f" 특히 '{', '.join(keywords)}'와 같은 표현이 주요 의심 근거입니다."
 
-    return {
-        "score": score,
-        "label": label,
-        "level": level,
-        "evidence": {"keywords": keywords, "sentences": sentences},
-        "message": msg
-    }
+class TextService:
+    def __init__(self, fake_news_predictor: KlueBertFakeNewsPredictor, naver_client: Optional[object] = None):
+        self.fake_news_predictor = fake_news_predictor
+        self.naver_client = naver_client  # None이면 references는 빈 리스트로 내려감
+
+    def predict_fake_news(self, text: str) -> FakeNewsPrediction:
+        return self.fake_news_predictor.predict_one(text)
+
+    def predict_fake_news_batch(self, texts: List[str]) -> List[FakeNewsPrediction]:
+        return self.fake_news_predictor.predict_batch(texts)
+
+    def analyze(self, text: str, evidence_k: int = 3, include_references: bool = True) -> TextAnalyzeResponse:
+        out = self.fake_news_predictor.analyze(text=text, evidence_k=evidence_k)
+
+        # label 매핑: REAL -> TRUE (너 UI 기준)
+        label = out["label"]
+        if label == "REAL":
+            label = "TRUE"
+
+        evidences = [TextEvidence(**e) for e in out.get("evidences", [])]
+        highlights = [TextHighlight(**h) for h in out.get("highlights", [])]
+
+        references: List[TextReference] = []
+        if include_references and self.naver_client is not None:
+            query = out.get("reference_query") or ""
+            if query.strip():
+                try:
+                    refs = self.naver_client.search_news(query=query)
+                    references = [TextReference(**r) for r in refs]
+                except Exception:
+                    # 참고자료 실패는 서비스 전체 실패로 만들지 않음
+                    references = []
+
+        return TextAnalyzeResponse(
+            label=label,
+            score=float(out["score"]),
+            evidences=evidences,
+            highlights=highlights,
+            references=references,
+        )
