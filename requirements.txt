@@ -7,7 +7,7 @@ soundfile==0.12.1
 
 # NumPy 버전 - Video/Audio 모델 호환
 opencv-python>=4.9.0  # NumPy 2.x 호환
-numpy>=1.21.2,<2.1
+numpy>=2.0.0,<2.1
 
 torch>=2.0.0
 torchvision>=0.15.0
