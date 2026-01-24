@@ -1,46 +1,44 @@
-# app/domains/text/router.py
-
-from fastapi import APIRouter, Depends, Request
-from .schemas import FakeNewsPredictRequest, FakeNewsPredictResponse
+from fastapi import APIRouter, Request, HTTPException
 
 from .schemas import (
+    TextAnalyzeRequest,
+    TextAnalyzeResponse,
     FakeNewsPredictRequest,
     FakeNewsPredictBatchRequest,
     FakeNewsPredictResponse,
     FakeNewsPredictBatchResponse,
 )
-from .service import TextService
-from .fake_news.predictor import FakeNewsPrediction
 
 router = APIRouter(prefix="/text", tags=["text"])
 
 
-# ---- DI (간단 버전) ----
-# 실제 프로젝트에서는 core/model_registry.py 같은 곳에서 싱글톤으로 꺼내는게 더 깔끔함
-_text_service: TextService | None = None
+def _get_text_service(request: Request):
+    svc = getattr(request.app.state, "text_service", None)
+    if svc is None:
+        raise HTTPException(status_code=503, detail="Text model not loaded.")
+    return svc
 
-def get_text_service() -> TextService:
-    assert _text_service is not None, "TextService not initialized"
-    return _text_service
 
-def init_text_service(service: TextService) -> None:
-    global _text_service
-    _text_service = service
+@router.post("/analyze", response_model=TextAnalyzeResponse)
+async def analyze(req: TextAnalyzeRequest, request: Request):
+    svc = _get_text_service(request)
+    return svc.analyze(
+        text=req.text,
+        evidence_k=req.evidence_k,
+        include_references=req.include_references,
+    )
 
 
 @router.post("/fake-news/predict", response_model=FakeNewsPredictResponse)
 async def predict(req: FakeNewsPredictRequest, request: Request):
-    svc = request.app.state.text_service
+    svc = _get_text_service(request)
     pred = svc.predict_fake_news(req.text)
+    return FakeNewsPredictResponse(label=pred.label, score=pred.score, probabilities=pred.probabilities)
 
-    return FakeNewsPredictResponse(
-        label=pred.label,
-        score=pred.score,
-        probabilities=pred.probabilities,
-    )
 
 @router.post("/fake-news/predict-batch", response_model=FakeNewsPredictBatchResponse)
-def predict_batch(req: FakeNewsPredictBatchRequest, svc: TextService = Depends(get_text_service)):
+async def predict_batch(req: FakeNewsPredictBatchRequest, request: Request):
+    svc = _get_text_service(request)
     preds = svc.predict_fake_news_batch(req.texts)
     return FakeNewsPredictBatchResponse(
         results=[FakeNewsPredictResponse(label=p.label, score=p.score, probabilities=p.probabilities) for p in preds]
