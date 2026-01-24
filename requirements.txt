@@ -1,0 +1,23 @@
+fastapi==0.128.0
+uvicorn==0.40.0
+pydantic-settings==2.10.1
+python-multipart==0.0.20
+boto3==1.42.28      
+soundfile==0.12.1
+
+# NumPy 버전 - Video/Audio 모델 호환
+opencv-python>=4.9.0  # NumPy 2.x 호환
+numpy>=1.21.2,<2.1
+
+torch>=2.0.0
+torchvision>=0.15.0
+pillow>=9.0.0
+facenet-pytorch>=2.5.0
+tqdm>=4.65.0
+timm>=0.9.12
+
+# Video 분석용
+opencv-python>=4.8.0
+
+# Audio 분석용
+librosa>=0.10.0

@@ -1,6 +1,8 @@
-from .ensemble_api import AudioDeepfakeEnsemble, AudioAnalysisResponse
+from .predictor import AudioDeepfakePredictor
+# from .ensemble_api import AudioDeepfakeEnsemble, AudioAnalysisResponse
 
 __all__ = [
-    'AudioDeepfakeEnsemble',
-    'AudioAnalysisResponse',
+    'AudioDeepfakePredictor',
+    # 'AudioDeepfakeEnsemble',
+    # 'AudioAnalysisResponse',
 ]
