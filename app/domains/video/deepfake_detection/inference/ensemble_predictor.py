@@ -3,6 +3,46 @@ import torch.nn.functional as F
 import cv2
 import numpy as np
 from PIL import Image
+import pickle
+import sys
+
+# NumPy 호환성 패치
+class NumpyCompatUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        # numpy._core를 numpy.core로 리다이렉트
+        if module.startswith('numpy._core'):
+            module = module.replace('numpy._core', 'numpy.core')
+        return super().find_class(module, name)
+
+def safe_torch_load(path, map_location):
+    """NumPy 호환성 문제 해결하는 torch.load"""
+    # 파일 읽기
+    with open(path, 'rb') as f:
+        data = f.read()
+    
+    # BytesIO로 변환
+    from io import BytesIO
+    buffer = BytesIO(data)
+    
+    # 커스텀 unpickler 사용
+    unpickler = NumpyCompatUnpickler(buffer)
+    
+    # torch.load 대신 수동으로 unpickle
+    # 하지만 torch의 persistent_load 필요
+    # 그래서 monkey patch 방식 사용
+    original_unpickler = pickle.Unpickler
+    
+    def patched_unpickler(file, **kwargs):
+        return NumpyCompatUnpickler(file, **kwargs)
+    
+    pickle.Unpickler = patched_unpickler
+    
+    try:
+        result = torch.load(BytesIO(data), map_location=map_location, weights_only=False)
+    finally:
+        pickle.Unpickler = original_unpickler
+    
+    return result
 
 # 상대 경로
 from ..models.ensemble import EnsembleModel
@@ -30,7 +70,8 @@ class EnsemblePredictor:
         
         # XceptionNet 로드
         print(f"Loading XceptionNet from {xception_path}")
-        xception_ckpt = torch.load(xception_path, map_location=self.device, weights_only=False)
+        xception_ckpt = safe_torch_load(xception_path, self.device)
+        
         xception_config = xception_ckpt.get('config', {})
         xception_model = XceptionNet(
             num_classes=xception_config.get('num_classes', 2),
@@ -41,7 +82,8 @@ class EnsemblePredictor:
         
         # EfficientNet-B4 로드
         print(f"Loading EfficientNet-B4 from {efficientnet_path}")
-        efficientnet_ckpt = torch.load(efficientnet_path, map_location=self.device, weights_only=False)
+        efficientnet_ckpt = safe_torch_load(efficientnet_path, self.device)
+        
         efficientnet_config = efficientnet_ckpt.get('config', {})
         efficientnet_model = EfficientNetB4(
             num_classes=efficientnet_config.get('num_classes', 2),
