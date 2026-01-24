@@ -84,11 +84,11 @@ def create_splits(raw_dir, output_file):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Prepare ASVspoof dataset splits')
     parser.add_argument('--raw_dir', type=str, 
-                       default='../../data/raw/LA',
-                       help='Raw data directory containing protocol files')
+                        default='../../data/raw/LA',
+                        help='Raw data directory containing protocol files')
     parser.add_argument('--output_file', type=str,
-                       default='../../data/splits/splits.json',
-                       help='Output splits JSON file')
+                        default='../../data/splits/splits.json',
+                        help='Output splits JSON file')
     
     args = parser.parse_args()
     

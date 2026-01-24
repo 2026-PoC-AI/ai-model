@@ -324,7 +324,7 @@ if __name__ == "__main__":
         'device': args.device,
         'num_workers': args.num_workers,
         'save_interval': args.save_interval,
-        'checkpoint_dir': './weights/audio_cnn'
+        'checkpoint_dir': '../weights/audio_cnn'
     }
     
     # Trainer 생성 및 학습

@@ -1,2 +1,8 @@
 from .audio_preprocessor import AudioPreprocessor
-__all__ = ['AudioPreprocessor']
+from .lfcc_preprocessor import LFCCPreprocessor, DeltaFeatureExtractor
+
+__all__ = [
+    'AudioPreprocessor',
+    'LFCCPreprocessor',
+    'DeltaFeatureExtractor',
+]
