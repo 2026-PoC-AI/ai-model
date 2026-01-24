@@ -60,7 +60,7 @@ class LightweightAudioCNN(nn.Module):
 
 def get_model(model_name='lightweight_cnn', num_classes=2, **kwargs):
     """
-    모델 생성 헬퍼 함수
+    CNN 모델 생성 헬퍼 함수
     """
     if model_name == 'lightweight_cnn':
         model = LightweightAudioCNN(num_classes=num_classes, **kwargs)

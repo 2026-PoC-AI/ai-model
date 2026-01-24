@@ -9,6 +9,6 @@ from app.domains.text.router import router as text_router
 router = APIRouter()
 router.include_router(health_router)
 router.include_router(audio_router, prefix="/audio", tags=["audio"])
-router.include_router(video_router, prefix="/video", tags=["video"])
+# router.include_router(video_router, prefix="/video", tags=["video"])
 router.include_router(image_router, prefix="/image", tags=["image"])
 router.include_router(text_router, prefix="/text", tags=["text"])

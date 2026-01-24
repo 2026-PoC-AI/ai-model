@@ -12,9 +12,9 @@ class AudioAnalysisService:
     def __init__(self, predictor):
         """
         Args:
-            predictor: app.state.models["audio"]에서 전달받은 모델
+            predictor: app.state.models["audio"]에서 전달받은 앙상블 모델
         """
-        self.predictor = predictor  # 이미 로드된 모델 사용
+        self.predictor = predictor  # 앙상블 예측기
     
     async def analyze_audio(self, file: BinaryIO, filename: str, analysis_id: int) -> dict:
         start_time = time.time()
@@ -40,7 +40,7 @@ class AudioAnalysisService:
             if file_size > max_size:
                 raise ValueError(f"파일 크기 초과: {file_size / 1024 / 1024:.2f}MB")
             
-            # 예측 (이미 로드된 모델 사용 - 빠름!)
+            # 앙상블 예측
             result = self.predictor.predict(tmp_path)
             
             processing_time = time.time() - start_time
@@ -49,9 +49,9 @@ class AudioAnalysisService:
                 "analysis_id": analysis_id,
                 "prediction": result['prediction'],
                 "confidence": result['confidence'],
-                "real_probability": result['real_probability'],
-                "fake_probability": result['fake_probability'],
-                "model_version": result['model_version'],
+                "probabilities": result['probabilities'],  # real/fake 확률
+                "model_outputs": result['model_outputs'],   # 각 모델의 개별 예측
+                "model_version": "ensemble_v1.0",
                 "processing_time": round(processing_time, 2),
                 "file_name": filename,
                 "file_size": file_size,
