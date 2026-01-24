@@ -1,16 +1,17 @@
-# app/domains/text/schemas.py
-from pydantic import BaseModel, Field
-from typing import List
+# app/domains/text/fake_news/schemas.py
+from pydantic import BaseModel
+from typing import List, Optional
 
-class TextEvidence(BaseModel):
-    score: float
-    reason: str
+class NewsRequest(BaseModel):
+    text: str
 
-class TextAnalyzeRequest(BaseModel):
-    text: str = Field(..., min_length=1)
+class Evidence(BaseModel):
+    keywords: List[str]  # 의심 단어들
+    sentences: List[str] # 의심 문장들
 
-class TextAnalyzeResponse(BaseModel):
-    risk_score: int = Field(..., ge=0, le=100)
-    grade: str  # LOW/MEDIUM/HIGH
-    evidence: List[TextEvidence] = []
-    warnings: List[str] = []
+class NewsResponse(BaseModel):
+    score: float         # 0~100 점수
+    label: int           # 0: 정상, 1: 가짜
+    level: str           # LOW, MID, HIGH
+    evidence: Evidence   # 증거 데이터
+    message: str         # 사용자용 요약 메시지
