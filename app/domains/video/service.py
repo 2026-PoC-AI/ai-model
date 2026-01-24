@@ -11,21 +11,19 @@ from .schemas import (
     AnalysisResultData,
     FrameAnalysisData
 )
-from .model import load_video_model
 
 class VideoAnalysisService:
-    def __init__(self):
+    def __init__(self, predictor):
+        """
+        Args:
+            predictor: app.state.models["video"]에서 전달받은 앙상블 모델
+        """
         # 업로드 디렉토리 설정
         self.upload_dir = Path("uploads/video")
         self.upload_dir.mkdir(parents=True, exist_ok=True)
         
-        # config에서 모델 경로 가져오기
-        self.model = load_video_model(
-            xception_path=settings.XCEPTION_MODEL_PATH,
-            efficientnet_path=settings.EFFICIENTNET_MODEL_PATH,
-            ensemble_method='soft_voting',
-            weights=[0.5, 0.5]
-        )
+        # 전달받은 모델 사용
+        self.model = predictor
     
     async def analyze_video(self, content: bytes, filename: str, analysis_id: int) -> VideoAnalysisResponse:
         """영상 딥페이크 분석 메인 로직"""
@@ -52,7 +50,7 @@ class VideoAnalysisService:
         # 6. 처리 시간 계산
         processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
         
-        # 7. 응답 생성 (DB 생성 ID들은 제외하고 분석 데이터 위주로 구성)
+        # 7. 응답 생성
         return VideoAnalysisResponse(
             analysisId=analysis_id,
             title=filename,
@@ -111,7 +109,6 @@ class VideoAnalysisService:
             if frame_number % sample_interval == 0:
                 is_suspicious, confidence, anomaly_type = self.model.analyze_frame(frame)
                 frame_analyses.append(FrameAnalysisData(
-                    # ★ frameId 제거: DB에서 자동 생성할 예정
                     frameNumber=frame_number,
                     timestampSeconds=Decimal(str(round(frame_number / fps, 2))),
                     isDeepfake=is_suspicious,

@@ -15,12 +15,17 @@ async def init_models(app: FastAPI) -> None:
     logger.info("Loading models...")
 
     app.state.models["audio"] = load_audio_model()
-    app.state.models["video"] = load_video_model(
-        xception_path=settings.XCEPTION_MODEL_PATH,
-        efficientnet_path=settings.EFFICIENTNET_MODEL_PATH,
-        ensemble_method='soft_voting',
-        weights=[0.5, 0.5]
-    )
+    # app.state.models["video"] = load_video_model(
+    #     xception_path=settings.XCEPTION_MODEL_PATH,
+    #     efficientnet_path=settings.EFFICIENTNET_MODEL_PATH,
+    #     ensemble_method='soft_voting',
+    #     weights=[0.5, 0.5]
+    # )
+
+    # Video 모델 로드 (임시 비활성화)
+    logger.warning("Video model loading temporarily disabled due to NumPy compatibility")
+    app.state.models["video"] = None
+
     app.state.models["image"] = load_image_model()
     app.state.models["text"] = load_text_model()
 
