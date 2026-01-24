@@ -1,3 +1,4 @@
+# 기존 (Xception, EfficientNet - 단일 프레임)
 import argparse
 import sys
 from pathlib import Path

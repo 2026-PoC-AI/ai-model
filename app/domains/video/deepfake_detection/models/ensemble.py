@@ -7,7 +7,7 @@ class EnsembleModel(nn.Module):
     XceptionNet과 EfficientNet-B4의 앙상블 모델
     """
     def __init__(self, xception_model, efficientnet_model, 
-                 weights=None, ensemble_method='soft_voting'):
+                    weights=None, ensemble_method='soft_voting'):
         """
         Args:
             xception_model: XceptionNet 모델
