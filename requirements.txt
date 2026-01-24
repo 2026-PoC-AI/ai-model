@@ -16,8 +16,10 @@ facenet-pytorch>=2.5.0
 tqdm>=4.65.0
 timm>=0.9.12
 
-# Video 분석용
-opencv-python>=4.8.0
+# Video 분석용 추가
+opencv-python>=4.8.1.78
+# Video 분석용 추가(Mac용)
+opencv-python-headless
 
 # Audio 분석용
 librosa>=0.10.0
