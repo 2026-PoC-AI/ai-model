@@ -1,62 +1,77 @@
-import logging
 import tempfile
-import time
+import os
 from pathlib import Path
 from typing import BinaryIO
 
-from app.core.config import settings
-
-logger = logging.getLogger(__name__)
-
 class AudioAnalysisService:
+    """
+    오디오 딥페이크 분석 서비스
+    """
+    
     def __init__(self, predictor):
         """
         Args:
-            predictor: app.state.models["audio"]에서 전달받은 앙상블 모델
+            predictor: EnsemblePredictor 인스턴스
         """
-        self.predictor = predictor  # 앙상블 예측기
+        self.predictor = predictor
     
-    async def analyze_audio(self, file: BinaryIO, filename: str, analysis_id: int) -> dict:
-        start_time = time.time()
+    async def analyze_audio(
+        self,
+        file_content: BinaryIO,
+        filename: str,
+        analysis_id: int
+    ) -> dict:
+        """
+        오디오 파일 분석
         
-        # 파일 검증
-        allowed_extensions = ['.wav', '.flac', '.mp3', '.ogg', '.m4a']
+        Args:
+            file_content: 파일 내용
+            filename: 파일명
+            analysis_id: 분석 ID
+            
+        Returns:
+            분석 결과 딕셔너리
+        """
         file_ext = Path(filename).suffix.lower()
+        allowed_extensions = ['.wav', '.flac', '.mp3', '.ogg', '.m4a']
         
         if file_ext not in allowed_extensions:
             raise ValueError(f"지원하지 않는 파일 형식: {file_ext}")
         
-        # 임시 파일 저장
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
-            content = file.read()
-            tmp_file.write(content)
-            tmp_path = tmp_file.name
-        
+        temp_path = None
         try:
-            # 크기 검증
-            file_size = len(content)
-            max_size = settings.MAX_AUDIO_MB * 1024 * 1024
+            # 임시 파일 저장
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
+                content = file_content.read()
+                temp_file.write(content)
+                temp_path = temp_file.name
             
-            if file_size > max_size:
-                raise ValueError(f"파일 크기 초과: {file_size / 1024 / 1024:.2f}MB")
+            # 예측 수행 - detailed=True 추가
+            result = self.predictor.predict(temp_path, detailed=True)
             
-            # 앙상블 예측
-            result = self.predictor.predict(tmp_path)
-            
-            processing_time = time.time() - start_time
-            
-            return {
-                "analysis_id": analysis_id,
-                "prediction": result['prediction'],
-                "confidence": result['confidence'],
-                "probabilities": result['probabilities'],  # real/fake 확률
-                "model_outputs": result['model_outputs'],   # 각 모델의 개별 예측
-                "model_version": "ensemble_v1.0",
-                "processing_time": round(processing_time, 2),
-                "file_name": filename,
-                "file_size": file_size,
-                "status": "completed"
+            # 응답 데이터 구성
+            response = {
+                'analysis_id': analysis_id,
+                'prediction': result['prediction'],
+                'confidence': result['confidence'],
+                'probabilities': result['probabilities'],
+                'model_outputs': result['model_outputs'],
+                'model_version': result.get('model_version', 'ensemble_v1.0'),
+                'processing_time': result.get('processing_time', 0.0),
+                'file_name': filename,
+                'file_size': len(content),
+                'status': 'completed',
+                # 3단계 필드 추가
+                'suspected_method': result.get('suspected_method'),
+                'method_confidence': result.get('method_confidence'),
+                'detailed_analysis': result.get('detailed_analysis'),
+                'suspicious_patterns': result.get('suspicious_patterns'),
+                'time_segments': result.get('time_segments')
             }
             
+            return response
+            
         finally:
-            Path(tmp_path).unlink(missing_ok=True)
+            # 임시 파일 삭제
+            if temp_path and os.path.exists(temp_path):
+                os.unlink(temp_path)

@@ -1,116 +1,112 @@
 import torch
-import numpy as np
+import torch.nn as nn
 import librosa
-from pathlib import Path
-import sys
+import numpy as np
+from typing import Dict, Literal
 
-# 프로젝트 루트 추가
-current_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(current_dir))
-
-from models.spectrogram_cnn import get_model
-from preprocessing.audio_preprocessor import AudioPreprocessor
-
-class AudioDeepfakePredictor:
+class AudioPredictor:
     """
-    학습된 모델을 사용한 오디오 딥페이크 예측 클래스
+    단일 모델 예측기
     """
-    def __init__(self, model_path, device='cpu'):
+    
+    def __init__(
+        self,
+        model: nn.Module,
+        device: str = 'cpu',
+        feature_type: Literal['mel', 'lfcc'] = 'mel',
+        sr: int = 16000,
+        n_mels: int = 128,
+        n_fft: int = 512,
+        hop_length: int = 256
+    ):
+        """
+        Args:
+            model: PyTorch 모델
+            device: 'cpu' or 'cuda'
+            feature_type: 'mel' or 'lfcc'
+            sr: 샘플링 레이트
+            n_mels: Mel 필터 수
+            n_fft: FFT 크기
+            hop_length: Hop 길이
+        """
+        self.model = model
         self.device = torch.device(device)
-        
-        # 모델 로드
-        print(f"Loading model from {model_path}...")
-        checkpoint = torch.load(model_path, map_location=self.device)
-        
-        self.model = get_model(
-            model_name='lightweight_cnn',
-            num_classes=2,
-            dropout=0.3
-        )
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.model = self.model.to(self.device)
+        self.model.to(self.device)
         self.model.eval()
         
-        # 전처리기
-        self.preprocessor = AudioPreprocessor(
-            sample_rate=16000,
-            n_fft=512,
-            hop_length=256,
-            n_mels=64,
-            duration=4.0,
-            spec_height=64,
-            spec_width=256
-        )
-        
-        # 모델 메타 정보
-        self.model_version = checkpoint.get('config', {}).get('model_name', 'v1.0.0')
-        
-        print("Model loaded successfully!")
+        self.feature_type = feature_type
+        self.sr = sr
+        self.n_mels = n_mels
+        self.n_fft = n_fft
+        self.hop_length = hop_length
     
-    def predict(self, audio_path):
+    def extract_features(self, audio_path: str) -> np.ndarray:
         """
-        오디오 파일에 대한 딥페이크 예측
+        오디오 파일에서 특징 추출
+        """
+        # 오디오 로드
+        y, sr = librosa.load(audio_path, sr=self.sr)
         
-        Args:
-            audio_path: 오디오 파일 경로
+        if self.feature_type == 'mel':
+            # Mel-spectrogram
+            mel_spec = librosa.feature.melspectrogram(
+                y=y,
+                sr=sr,
+                n_mels=self.n_mels,
+                n_fft=self.n_fft,
+                hop_length=self.hop_length
+            )
+            # dB 스케일 변환
+            mel_db = librosa.power_to_db(mel_spec, ref=np.max)
+            features = mel_db
+        
+        elif self.feature_type == 'lfcc':
+            # LFCC (Linear Frequency Cepstral Coefficients)
+            # STFT
+            D = librosa.stft(y, n_fft=self.n_fft, hop_length=self.hop_length)
+            S = np.abs(D) ** 2
+            
+            # Linear frequency scale
+            # DCT 적용
+            from scipy.fftpack import dct
+            lfcc = dct(S, axis=0, norm='ortho')[:self.n_mels, :]
+            features = lfcc
+        
+        else:
+            raise ValueError(f"Unknown feature type: {self.feature_type}")
+        
+        return features
+    
+    def predict(self, audio_path: str) -> Dict:
+        """
+        예측 수행
         
         Returns:
-            dict: {
-                'prediction': 'real' or 'fake',
-                'confidence': 0.9234,
-                'real_probability': 0.0766,
-                'fake_probability': 0.9234,
-                'model_version': 'v1.0.0'
-            }
+            prediction: 'real' or 'fake'
+            probabilities: {'real': float, 'fake': float}
         """
-        # 전처리
-        spec = self.preprocessor.preprocess(audio_path)
+        # 특징 추출
+        features = self.extract_features(audio_path)
         
-        # Tensor로 변환
-        spec_tensor = torch.from_numpy(spec).unsqueeze(0).unsqueeze(0).float()
-        spec_tensor = spec_tensor.to(self.device)
+        # 텐서 변환 (batch_size=1, channels=1, height, width)
+        features_tensor = torch.FloatTensor(features).unsqueeze(0).unsqueeze(0)
+        features_tensor = features_tensor.to(self.device)
         
         # 예측
         with torch.no_grad():
-            output = self.model(spec_tensor)
-            probabilities = torch.softmax(output, dim=1)
+            outputs = self.model(features_tensor)
+            probs = torch.softmax(outputs, dim=1)
+            probs_numpy = probs.cpu().numpy()[0]
         
-        # 결과 추출
-        real_prob = probabilities[0][0].item()
-        fake_prob = probabilities[0][1].item()
-        prediction = 'real' if real_prob > fake_prob else 'fake'
-        confidence = max(real_prob, fake_prob)
+        # 결과
+        real_prob = float(probs_numpy[0])
+        fake_prob = float(probs_numpy[1])
+        prediction = 'fake' if fake_prob > 0.5 else 'real'
         
         return {
             'prediction': prediction,
-            'confidence': round(confidence, 4),
-            'real_probability': round(real_prob, 4),
-            'fake_probability': round(fake_prob, 4),
-            'model_version': self.model_version
+            'probabilities': {
+                'real': real_prob,
+                'fake': fake_prob
+            }
         }
-    
-    def predict_from_bytes(self, audio_bytes, filename='temp.wav'):
-        """
-        바이트 데이터에서 직접 예측 (API 업로드용)
-        
-        Args:
-            audio_bytes: 오디오 바이트 데이터
-            filename: 임시 파일명
-        
-        Returns:
-            dict: 예측 결과
-        """
-        import tempfile
-        
-        # 임시 파일로 저장
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
-            tmp_file.write(audio_bytes)
-            tmp_path = tmp_file.name
-        
-        try:
-            result = self.predict(tmp_path)
-        finally:
-            # 임시 파일 삭제
-            Path(tmp_path).unlink(missing_ok=True)
-        
-        return result
