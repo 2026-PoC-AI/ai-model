@@ -1,3 +1,5 @@
+# 설치방법: pip install -r requirements.txt
+
 fastapi==0.128.0
 uvicorn==0.40.0
 pydantic-settings==2.10.1
@@ -27,3 +29,8 @@ librosa>=0.10.0
 # text 분석용
 transformers>=4.40.0
 tokenizers>=0.15.0
+
+# 레디스
+redis==5.0.1
+
+

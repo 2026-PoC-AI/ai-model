@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     SPRING_BACKEND_URL: str
 
     AUDIO_MODEL_PATH: str
-    VIDEO_MODEL_PATH: str  # 기존 (사용 안 함)
+    VIDEO_MODEL_PATH: str
     IMAGE_MODEL_PATH: str
     TEXT_MODEL_PATH: str
     
@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     XCEPTION_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/xception/xception_best_20260116.pth"
     EFFICIENTNET_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/efficientnet/efficientnet_best_20260116.pth"
 
+    # Image Deepfake Detection Model
     IMAGE_WEIGHT_PATH: str = "app/domains/image/deepfake/weights/custom_xception.pth"
 
     USE_GPU: bool = False
@@ -41,6 +42,11 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str
     AWS_REGION: str
     AWS_BUCKET_NAME: str
+    
+    # Redis
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
 
     #Naver API
     naver_client_id: str = Field(default="", alias="NAVER_CLIENT_ID")
