@@ -38,9 +38,14 @@ async def init_models(app: FastAPI) -> None:
     app.state.models["image"] = load_image_model()
     app.state.models["text"] = load_text_model()
 
+    app.state.text_service = app.state.models["text"]
+
     logger.info("Models loaded: %s", list(app.state.models.keys()))
 
 async def close_models(app: FastAPI) -> None:
     models = getattr(app.state, "models", None)
     if models:
         logger.info("Shutting down models...")
+
+    if hasattr(app.state, "text_service"):
+        app.state.text_service = None

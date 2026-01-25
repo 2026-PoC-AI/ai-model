@@ -1,13 +1,45 @@
-# app/domains/text/router.py
-from fastapi import APIRouter, Request
-from app.common.responses import ok, ApiResponse
-from app.domains.text.schemas import TextAnalyzeRequest, TextAnalyzeResponse
-from app.domains.text.service import analyze_text
+from fastapi import APIRouter, Request, HTTPException
 
-router = APIRouter()
+from .schemas import (
+    TextAnalyzeRequest,
+    TextAnalyzeResponse,
+    FakeNewsPredictRequest,
+    FakeNewsPredictBatchRequest,
+    FakeNewsPredictResponse,
+    FakeNewsPredictBatchResponse,
+)
 
-@router.post("/analyze", response_model=ApiResponse[TextAnalyzeResponse])
-async def analyze(request: Request, body: TextAnalyzeRequest):
-    rid = request.state.request_id
-    result = analyze_text(request, body.text)
-    return ok(result, request_id=rid)
+router = APIRouter(prefix="/text", tags=["text"])
+
+
+def _get_text_service(request: Request):
+    svc = getattr(request.app.state, "text_service", None)
+    if svc is None:
+        raise HTTPException(status_code=503, detail="Text model not loaded.")
+    return svc
+
+
+@router.post("/analyze", response_model=TextAnalyzeResponse)
+async def analyze(req: TextAnalyzeRequest, request: Request):
+    svc = _get_text_service(request)
+    return svc.analyze(
+        text=req.text,
+        evidence_k=req.evidence_k,
+        include_references=req.include_references,
+    )
+
+
+@router.post("/fake-news/predict", response_model=FakeNewsPredictResponse)
+async def predict(req: FakeNewsPredictRequest, request: Request):
+    svc = _get_text_service(request)
+    pred = svc.predict_fake_news(req.text)
+    return FakeNewsPredictResponse(label=pred.label, score=pred.score, probabilities=pred.probabilities)
+
+
+@router.post("/fake-news/predict-batch", response_model=FakeNewsPredictBatchResponse)
+async def predict_batch(req: FakeNewsPredictBatchRequest, request: Request):
+    svc = _get_text_service(request)
+    preds = svc.predict_fake_news_batch(req.texts)
+    return FakeNewsPredictBatchResponse(
+        results=[FakeNewsPredictResponse(label=p.label, score=p.score, probabilities=p.probabilities) for p in preds]
+    )
