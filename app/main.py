@@ -73,3 +73,17 @@ if __name__ == "__main__":
         port=settings.PORT,
         reload=True
     )
+
+
+# app/main.py의 startup 이벤트에 추가
+@app.on_event("startup")
+async def _startup():
+    await init_models(app)
+    
+    # Redis 연결 테스트
+    try:
+        from app.core.redis_client import redis_client
+        redis_client.client.ping()
+        print("✓ Redis 연결 성공!")
+    except Exception as e:
+        print(f"✗ Redis 연결 실패: {e}")

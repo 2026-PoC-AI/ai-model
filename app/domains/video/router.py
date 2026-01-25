@@ -5,6 +5,7 @@ from .schemas import VideoAnalysisResponse
 import logging
 import traceback  # // 상세 에러 추적을 위해 추가
 import numpy as np # // 호환성 체크용
+from app.core.redis_client import redis_client
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -79,3 +80,14 @@ async def analyze_video(
 async def health_check():
     """Video 분석 서비스 상태 확인"""
     return {"status": "ok", "service": "video-deepfake-detection"}
+
+
+@router.get("/progress/{analysis_id}")
+async def get_analysis_progress(analysis_id: int):
+    """비디오 분석 진행률 조회"""
+    progress = redis_client.get_progress(analysis_id)
+    
+    if progress is None:
+        raise HTTPException(status_code=404, detail="진행률 정보를 찾을 수 없습니다")
+    
+    return progress
