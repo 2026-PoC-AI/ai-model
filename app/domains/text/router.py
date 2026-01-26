@@ -9,7 +9,7 @@ from .schemas import (
     FakeNewsPredictBatchResponse,
 )
 
-router = APIRouter(prefix="/text", tags=["text"])
+router = APIRouter()
 
 
 def _get_text_service(request: Request):
