@@ -1,50 +1,52 @@
 import torch
-import torch.nn.functional as F
-import cv2
-import numpy as np
-from PIL import Image
 import pickle
-import sys
-
-# NumPy 호환성 패치
-class NumpyCompatUnpickler(pickle.Unpickler):
-    def find_class(self, module, name):
-        # numpy._core를 numpy.core로 리다이렉트
-        if module.startswith('numpy._core'):
-            module = module.replace('numpy._core', 'numpy.core')
-        return super().find_class(module, name)
+import numpy as np
+import io
+import cv2
+from PIL import Image
 
 def safe_torch_load(path, map_location):
-    """NumPy 호환성 문제 해결하는 torch.load"""
-    # 파일 읽기
+    """
+    NumPy 2.0 환경에서 구버전 가중치 파일을 읽을 때 발생하는 
+    Pickle/Code 인자 타입 에러를 해결하는 로더
+    """
+    # // 1. 파일 내용을 바이너리로 읽음
     with open(path, 'rb') as f:
         data = f.read()
-    
-    # BytesIO로 변환
-    from io import BytesIO
-    buffer = BytesIO(data)
-    
-    # 커스텀 unpickler 사용
-    unpickler = NumpyCompatUnpickler(buffer)
-    
-    # torch.load 대신 수동으로 unpickle
-    # 하지만 torch의 persistent_load 필요
-    # 그래서 monkey patch 방식 사용
-    original_unpickler = pickle.Unpickler
-    
-    def patched_unpickler(file, **kwargs):
-        return NumpyCompatUnpickler(file, **kwargs)
-    
-    pickle.Unpickler = patched_unpickler
-    
-    try:
-        result = torch.load(BytesIO(data), map_location=map_location, weights_only=False)
-    finally:
-        pickle.Unpickler = original_unpickler
-    
-    return result
 
-# 상대 경로
+    # // 2. NumPy 2.0에서 변경된 내부 경로 리다이렉트를 위한 커스텀 Unpickler
+    class CompatUnpickler(pickle.Unpickler):
+        def find_class(self, module, name):
+            # // NumPy 2.0의 _core 구조를 구버전 core 구조로 매핑
+            if module.startswith('numpy._core'):
+                module = module.replace('numpy._core', 'numpy.core')
+            elif module == 'numpy' and name in ['float', 'int', 'bool']:
+                # // NumPy 2.0에서 사라진 별칭들을 기본 파이썬 타입으로 복구
+                return getattr(__builtins__, name)
+            return super().find_class(module, name)
+
+    # // 3. torch.load 내부에서 사용할 pickle 객체를 몽키 패칭
+    def custom_load(file, **kwargs):
+        return CompatUnpickler(file, **kwargs).load()
+
+    try:
+        # // 먼저 가장 안전한 weights_only=True 시도
+        return torch.load(io.BytesIO(data), map_location=map_location, weights_only=True)
+    except Exception:
+        # // 실패 시, 커스텀 unpickler를 강제로 주입하여 로드
+        try:
+            return torch.load(
+                io.BytesIO(data), 
+                map_location=map_location, 
+                weights_only=False,
+                pickle_module=type('CustomPickle', (), {'Unpickler': CompatUnpickler, 'load': custom_load})
+            )
+        except Exception as e:
+            # // 최후의 수단: 에러가 'code' 관련이면 CPU로 로드 후 복사
+            if "argument 'code' must be code" in str(e):
+                return torch.load(io.BytesIO(data), map_location='cpu', weights_only=False)
+            raise e
+
 from ..models.ensemble import EnsembleModel
 from ..models.xception import XceptionNet
 from ..models.efficientnet import EfficientNetB4
@@ -68,7 +70,6 @@ class EnsemblePredictor:
         """
         self.device = torch.device(device)
         
-        # XceptionNet 로드
         print(f"Loading XceptionNet from {xception_path}")
         xception_ckpt = safe_torch_load(xception_path, self.device)
         
@@ -80,7 +81,6 @@ class EnsemblePredictor:
         )
         xception_model.load_state_dict(xception_ckpt['model_state_dict'])
         
-        # EfficientNet-B4 로드
         print(f"Loading EfficientNet-B4 from {efficientnet_path}")
         efficientnet_ckpt = safe_torch_load(efficientnet_path, self.device)
         
@@ -92,7 +92,6 @@ class EnsemblePredictor:
         )
         efficientnet_model.load_state_dict(efficientnet_ckpt['model_state_dict'])
         
-        # 앙상블 모델 생성
         self.model = EnsembleModel(
             xception_model, 
             efficientnet_model,
@@ -106,10 +105,7 @@ class EnsemblePredictor:
         print(f"  - Method: {ensemble_method}")
         print(f"  - Weights: {weights if weights else [0.5, 0.5]}")
         
-        # 얼굴 검출기
         self.face_detector = FaceDetector(device=device)
-        
-        # 전처리 변환
         self.transform = get_transforms('val')
     
     def predict_image(self, image_path):
@@ -123,29 +119,21 @@ class EnsemblePredictor:
             result: 예측 결과 딕셔너리
             error: 에러 메시지 (에러 없으면 None)
         """
-        # 이미지 로드
         image = cv2.imread(image_path)
         
         if image is None:
             return None, f"Failed to load image: {image_path}"
         
-        # 얼굴 검출 및 정렬
         faces = self.face_detector.detect_and_align(image)
         
         if len(faces) == 0:
             return None, "No face detected in the image"
         
-        # 첫 번째 얼굴만 사용
         face = faces[0]
-        
-        # PIL Image로 변환
         face_rgb = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
         face_pil = Image.fromarray(face_rgb)
-        
-        # 전처리 및 배치 차원 추가
         face_tensor = self.transform(face_pil).unsqueeze(0).to(self.device)
         
-        # 앙상블 예측
         with torch.no_grad():
             ensemble_probs = self.model(face_tensor)
             fake_prob = ensemble_probs[0][1].item()
@@ -159,7 +147,8 @@ class EnsemblePredictor:
         
         return result, None
     
-    def predict_video(self, video_path, sample_rate=5, aggregation='mean'):
+    def predict_video(self, video_path, sample_rate=5, aggregation='mean', 
+                     progress_callback=None, analysis_id=None):
         """
         비디오에 대한 앙상블 예측
         
@@ -167,6 +156,8 @@ class EnsemblePredictor:
             video_path: 비디오 파일 경로
             sample_rate: 프레임 샘플링 비율
             aggregation: 프레임별 예측 집계 방식
+            progress_callback: 진행률 콜백 함수 (progress_percent, stage, detail)
+            analysis_id: 분석 ID (Redis 키로 사용)
         
         Returns:
             result: 예측 결과 딕셔너리
@@ -176,6 +167,11 @@ class EnsemblePredictor:
         
         if not cap.isOpened():
             return None, f"Failed to open video: {video_path}"
+        
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        if progress_callback:
+            progress_callback(0, "video_upload", "영상 업로드 완료", analysis_id)
         
         frame_predictions = []
         frame_count = 0
@@ -189,40 +185,60 @@ class EnsemblePredictor:
             
             frame_count += 1
             
-            # 샘플링
             if frame_count % sample_rate != 0:
                 continue
             
-            # 얼굴 검출 및 정렬
+            current_progress = int((frame_count / total_frames) * 100)
+            
+            if progress_callback and processed_count % 5 == 0:
+                progress_callback(
+                    current_progress, 
+                    "frame_extraction", 
+                    f"프레임 추출 중 ({frame_count}/{total_frames})",
+                    analysis_id
+                )
+            
             faces = self.face_detector.detect_and_align(frame)
             
             if len(faces) == 0:
                 continue
             
-            # 첫 번째 얼굴만 사용
-            face = faces[0]
+            if progress_callback and processed_count % 5 == 0:
+                progress_callback(
+                    current_progress, 
+                    "face_detection", 
+                    f"얼굴 검출 완료 ({processed_count+1}번째 프레임)",
+                    analysis_id
+                )
             
-            # PIL Image로 변환
+            face = faces[0]
             face_rgb = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
             face_pil = Image.fromarray(face_rgb)
-            
-            # 전처리 및 배치 차원 추가
             face_tensor = self.transform(face_pil).unsqueeze(0).to(self.device)
             
-            # 앙상블 예측
             with torch.no_grad():
                 ensemble_probs = self.model(face_tensor)
                 fake_prob = ensemble_probs[0][1].item()
             
             frame_predictions.append(fake_prob)
             processed_count += 1
+            
+            if progress_callback and processed_count % 5 == 0:
+                progress_callback(
+                    current_progress, 
+                    "ai_analysis", 
+                    f"AI 모델 분석 중 ({processed_count}개 프레임 완료)",
+                    analysis_id
+                )
         
         cap.release()
         
         if len(frame_predictions) == 0:
             return None, "No faces detected in video frames"
         
-        # 프레임별 예측 집계
+        if progress_callback:
+            progress_callback(95, "result_generation", "결과 생성 중", analysis_id)
+        
         aggregated_prob = aggregate_predictions(frame_predictions, method=aggregation)
         
         result = {
@@ -234,5 +250,8 @@ class EnsemblePredictor:
             'processed_frames': processed_count,
             'frame_predictions': frame_predictions
         }
+        
+        if progress_callback:
+            progress_callback(100, "completed", "분석 완료", analysis_id)
         
         return result, None
