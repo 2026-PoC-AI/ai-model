@@ -1,4 +1,4 @@
-# // app/core/model_registry.py
+# app/core/model_registry.py
 import logging
 from fastapi import FastAPI
 
@@ -14,28 +14,32 @@ async def init_models(app: FastAPI) -> None:
     app.state.models = {}
     logger.info("Loading models...")
 
-    # // 1. Audio 모델 로드
+    # Audio 모델 로드
     app.state.models["audio"] = load_audio_model()
 
-    # // 2. Video 모델 로드 (주석 해제 및 예외 처리 강화)
+    # Video 모델 로드 (3-Model Ensemble)
     try:
-        logger.info("Loading Video Ensemble Models (Xception + EfficientNet)...")
+        logger.info("Loading Video Ensemble Models (Xception + EfficientNet + CNN-LSTM)...")
         app.state.models["video"] = load_video_model(
             xception_path=settings.XCEPTION_MODEL_PATH,
             efficientnet_path=settings.EFFICIENTNET_MODEL_PATH,
-            ensemble_method='soft_voting',
-            weights=[0.5, 0.5]
+            cnn_lstm_path=settings.CNN_LSTM_MODEL_PATH,  # 새로 추가
+            device='cuda' if settings.USE_GPU else 'cpu'
         )
-        logger.info("✓ Video models loaded successfully!")
+        logger.info("✓ Video 3-model ensemble loaded successfully!")
+        logger.info("  - XceptionNet: 공간적 아티팩트 탐지")
+        logger.info("  - EfficientNet-B4: 구조적 불일치 탐지")
+        logger.info("  - CNN-LSTM: 시간적 일관성 분석")
     except Exception as e:
-        # // 로드 실패 시 서버가 죽지 않게 하고 에러 내용을 상세히 출력
         logger.error(f"Critical error loading video models: {e}")
         import traceback
         logger.error(traceback.format_exc())
         app.state.models["video"] = None
 
-    # // 3. Image & Text 모델 로드
+    # Image 모델 로드
     app.state.models["image"] = load_image_model()
+
+    # Text 모델 로드
     app.state.models["text"] = load_text_model()
 
     app.state.text_service = app.state.models["text"]

@@ -14,8 +14,8 @@ class CelebDFPreprocessor:
     영상에서 얼굴 추출 및 train/val 분할
     """
     def __init__(self, raw_dir='video/data/raw/celeb-df', 
-                 processed_dir='video/data/processed',
-                 frame_interval=30):
+                    processed_dir='video/data/processed',
+                    frame_interval=30):
         self.raw_dir = Path(raw_dir)
         self.processed_dir = Path(processed_dir)
         self.frame_interval = frame_interval
@@ -86,7 +86,7 @@ class CelebDFPreprocessor:
             처리된 영상 수
         """
         video_files = list(Path(video_dir).glob('*.mp4')) + \
-                     list(Path(video_dir).glob('*.avi'))
+                        list(Path(video_dir).glob('*.avi'))
         
         if len(video_files) == 0:
             print(f"No videos found in {video_dir}")

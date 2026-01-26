@@ -83,6 +83,17 @@ def interpret_deepfake(confidence: float) -> dict:
 
 
 def analyze_image(request: Request, job_uuid: str, s3_key: str) -> dict:
+    import logging
+    logger = logging.getLogger("app")
+    
+    # 설정 확인
+    logger.info(f"=== AWS Configuration Debug ===")
+    logger.info(f"AWS_ACCESS_KEY_ID: {settings.AWS_ACCESS_KEY_ID}")
+    logger.info(f"AWS_SECRET_ACCESS_KEY: {settings.AWS_SECRET_ACCESS_KEY[:20]}...")
+    logger.info(f"AWS_REGION: {settings.AWS_REGION}")
+    logger.info(f"AWS_BUCKET_NAME: {settings.AWS_BUCKET_NAME}")
+    logger.info(f"================================")
+    
     model_loaded = request.app.state.models.get("image")
     if model_loaded is None:
         raise AppError(Errors.MODEL_NOT_LOADED)

@@ -1,14 +1,13 @@
+# app/main.py
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
-# --- [추가] NumPy 2.0 호환성 패치 시작 ---
+# NumPy 2.0 호환성 패치
 import numpy as np
 if int(np.__version__.split('.')[0]) >= 2:
     if not hasattr(np, "float_"): np.float_ = float
     if not hasattr(np, "bool_"): np.bool_ = bool
     if not hasattr(np, "int_"): np.int_ = int
-# --- [추가] 패치 끝 ---
-
 
 import uvicorn
 from fastapi import FastAPI
@@ -29,7 +28,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Deepfake Detection API",
         description="Video, Audio, Image, Text 딥페이크 탐지 통합 API",
-        version="1.0.0"
+        version="2.0.0"  # 3-model ensemble 반영
     )
 
     app.add_middleware(RequestIdMiddleware)
@@ -39,22 +38,29 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def _startup():
+        # 모델 로드
         await init_models(app)
 
+        # Text 모델 추가 설정
         fake_news_predictor = KlueBertFakeNewsPredictor(
             state_dict_path="app/domains/text/fake_news/weights/model_state_dict.pth", 
             num_labels=2,
-                        id2label={0: "FAKE", 1: "REAL"},
-                        max_length=256,
+            id2label={0: "FAKE", 1: "REAL"},
+            max_length=256,
         )
 
         text_service = TextService(fake_news_predictor=fake_news_predictor)
-
-        # FastAPI 전역 상태에 등록
         app.state.text_service = text_service
 
-        print(" Text FakeNews model loaded (KLUE-BERT)")
-
+        print("✓ Text FakeNews model loaded (KLUE-BERT)")
+        
+        # Redis 연결 테스트
+        try:
+            from app.core.redis_client import redis_client
+            redis_client.client.ping()
+            print("✓ Redis 연결 성공!")
+        except Exception as e:
+            print(f"✗ Redis 연결 실패: {e}")
 
     @app.on_event("shutdown")
     async def _shutdown():
@@ -64,12 +70,42 @@ def create_app() -> FastAPI:
     async def root():
         return {
             "message": "Deepfake Detection API",
-            "version": "1.0.0",
+            "version": "2.0.0",
             "endpoints": {
-                "video": "/api/v1/video",
-                "audio": "/api/v1/audio",
-                "image": "/api/v1/image",
-                "text": "/api/v1/text"
+                "video": "/api/v1/video/analyze",
+                "audio": "/api/v1/audio/analyze",
+                "image": "/api/v1/image/analyze",
+                "text": "/api/v1/text/analyze"
+            },
+            "docs": "/docs",
+            "health": "/api/v1/health"
+        }
+    
+    @app.get("/api/v1/models/info")
+    async def models_info():
+        return {
+            "video": {
+                "type": "3-Model Ensemble",
+                "models": ["XceptionNet", "EfficientNet-B4", "CNN-LSTM"],
+                "capabilities": [
+                    "공간적 아티팩트 탐지",
+                    "구조적 불일치 분석",
+                    "시간적 일관성 검증"
+                ],
+                "expected_accuracy": "93-94%"
+            },
+            "audio": {
+                "type": "Dual-Model",
+                "models": ["Mel-spectrogram CNN", "LFCC CNN"],
+                "expected_accuracy": "99.6-99.8%"
+            },
+            "image": {
+                "type": "Single Model",
+                "expected_accuracy": "TBD"
+            },
+            "text": {
+                "type": "KLUE-BERT Fine-tuned",
+                "task": "Fake News Detection"
             }
         }
 
@@ -78,12 +114,17 @@ def create_app() -> FastAPI:
 app = create_app()
 
 if __name__ == "__main__":
-    print("\n" + "="*50)
-    print("Starting Deepfake Detection API")
-    print("="*50)
+    print("\n" + "="*60)
+    print("Starting Deepfake Detection API v2.0")
+    print("="*60)
+    print("Video: XceptionNet + EfficientNet-B4 + CNN-LSTM Ensemble")
+    print("  - 공간적 아티팩트 탐지 (XceptionNet)")
+    print("  - 구조적 불일치 분석 (EfficientNet-B4)")
+    print("  - 시간적 일관성 검증 (CNN-LSTM)")
+    print("-"*60)
     print("Audio: Mel-spectrogram CNN + LFCC CNN")
-    print("Expected Accuracy: 99.6-99.8%")
-    print("="*50 + "\n")
+    print("  - Expected Accuracy: 99.6-99.8%")
+    print("="*60 + "\n")
     
     uvicorn.run(
         "app.main:app",
@@ -91,17 +132,3 @@ if __name__ == "__main__":
         port=settings.PORT,
         reload=True
     )
-
-
-# app/main.py의 startup 이벤트에 추가
-@app.on_event("startup")
-async def _startup():
-    await init_models(app)
-    
-    # Redis 연결 테스트
-    try:
-        from app.core.redis_client import redis_client
-        redis_client.client.ping()
-        print("✓ Redis 연결 성공!")
-    except Exception as e:
-        print(f"✗ Redis 연결 실패: {e}")
