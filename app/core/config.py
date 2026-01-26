@@ -16,21 +16,26 @@ class Settings(BaseSettings):
     
     SPRING_BACKEND_URL: str
 
-    AUDIO_MODEL_PATH: str
-    VIDEO_MODEL_PATH: str
-    IMAGE_MODEL_PATH: str
-    TEXT_MODEL_PATH: str
-    
-    # Video Deepfake Detection Models
+    # Video Deepfake Detection Models (3-Model Ensemble)
     XCEPTION_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/xception/xception_best_20260116.pth"
     EFFICIENTNET_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/efficientnet/efficientnet_best_20260116.pth"
+    CNN_LSTM_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/cnn-lstm/improved/best_model_latest.pth"  # // 더블슬래시 제거
 
+    # Audio Deepfake Detection Model
+    AUDIO_MODEL_PATH: str = "app/domains/audio/deepfake_detection/weights/audio_cnn/best_model_latest.pth"
+    
     # Image Deepfake Detection Model
-    IMAGE_WEIGHT_PATH: str = "app/domains/image/deepfake/weights/custom_xception.pth"
+    IMAGE_MODEL_PATH: str = "app/domains/image/deepfake/weights/custom_xception.pth"
+    IMAGE_WEIGHT_PATH: str = "app/domains/image/deepfake/weights/custom_xception.pth"  # 호환성 유지
+    
+    # Text Deepfake Detection Model
+    TEXT_MODEL_PATH: str = "app/domains/text/fake_news/weights/model_state_dict.pth"
 
+    # GPU 설정
     USE_GPU: bool = False
     GPU_DEVICE_ID: int = 0
 
+    # File Size Limits
     MAX_AUDIO_MB: int = 50
     MAX_VIDEO_MB: int = 300
     MAX_IMAGE_MB: int = 20
@@ -48,7 +53,7 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
 
-    #Naver API
+    # Naver API
     naver_client_id: str = Field(default="", alias="NAVER_CLIENT_ID")
     naver_client_secret: str = Field(default="", alias="NAVER_CLIENT_SECRET")
 
