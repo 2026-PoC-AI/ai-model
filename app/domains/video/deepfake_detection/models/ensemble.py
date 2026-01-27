@@ -5,6 +5,9 @@ import torch.nn.functional as F
 import timm
 from typing import Dict, List, Tuple
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 class XceptionNet(nn.Module):
     def __init__(self, pretrained=True):
@@ -81,45 +84,72 @@ class DeepfakeEnsemble:
     def __init__(self, weights_dir: str, device: str = 'cuda'):
         self.device = device
         
+        logger.info(f"Initializing DeepfakeEnsemble with weights_dir: {weights_dir}, device: {device}")
+        
         # 모델 로드
+        logger.info("Creating model architectures...")
         self.xception = XceptionNet(pretrained=False).to(device)
         self.efficientnet = EfficientNetB4(pretrained=False).to(device)
         self.cnn_lstm = CNNLSTMModel().to(device)
+        logger.info("Model architectures created successfully")
         
         # 가중치 로드
-        xception_weights = torch.load(f"{weights_dir}/xception/xception_best_20260116.pth", map_location=device)
-        self.xception.load_state_dict(xception_weights['model_state_dict'])
-        
-        efficientnet_weights = torch.load(f"{weights_dir}/efficientnet/efficientnet_best_20260116.pth", map_location=device)
-        self.efficientnet.load_state_dict(efficientnet_weights['model_state_dict'])
-        
-        cnn_lstm_weights = torch.load(f"{weights_dir}/cnn-lstm/improved/best_model_latest.pth", map_location=device)
-        self.cnn_lstm.load_state_dict(cnn_lstm_weights['model_state_dict'])
+        try:
+            xception_path = f"{weights_dir}/xception/xception_best_20260116.pth"
+            logger.info(f"Loading XceptionNet weights from: {xception_path}")
+            xception_weights = torch.load(xception_path, map_location=device)
+            self.xception.load_state_dict(xception_weights['model_state_dict'])
+            logger.info(f"XceptionNet weights loaded - epoch: {xception_weights.get('epoch', 'unknown')}")
+            
+            efficientnet_path = f"{weights_dir}/efficientnet/efficientnet_best.pth"
+            logger.info(f"Loading EfficientNet weights from: {efficientnet_path}")
+            efficientnet_weights = torch.load(efficientnet_path, map_location=device)
+            self.efficientnet.load_state_dict(efficientnet_weights['model_state_dict'])
+            logger.info(f"EfficientNet weights loaded - epoch: {efficientnet_weights.get('epoch', 'unknown')}")
+            
+            cnn_lstm_path = f"{weights_dir}/cnn-lstm/improved/best_model_latest.pth"
+            logger.info(f"Loading CNN-LSTM weights from: {cnn_lstm_path}")
+            cnn_lstm_weights = torch.load(cnn_lstm_path, map_location=device)
+            self.cnn_lstm.load_state_dict(cnn_lstm_weights['model_state_dict'])
+            logger.info(f"CNN-LSTM weights loaded - epoch: {cnn_lstm_weights.get('epoch', 'unknown')}")
+        except Exception as e:
+            logger.error(f"Error loading model weights: {str(e)}")
+            raise
         
         # Evaluation 모드
         self.xception.eval()
         self.efficientnet.eval()
         self.cnn_lstm.eval()
+        logger.info("All models set to evaluation mode")
         
-        # 앙상블 가중치 (validation accuracy 기반)
+        # 앙상블 가중치
         self.weights = {
-            'xception': 0.4,      # 91.75%
-            'efficientnet': 0.3,  # 81.43%
-            'cnn_lstm': 0.3       # 90.00%
+            'xception': 0.4,
+            'efficientnet': 0.3,
+            'cnn_lstm': 0.3
         }
+        logger.info(f"Ensemble weights: {self.weights}")
     
     def predict_single_frame(self, frame: torch.Tensor) -> Dict:
         """단일 프레임 예측 (XceptionNet, EfficientNet)"""
+        logger.debug(f"predict_single_frame called - input shape: {frame.shape}")
+        
         with torch.no_grad():
             # XceptionNet 예측
             xception_out = self.xception(frame)
             xception_prob = F.softmax(xception_out, dim=1)
             xception_fake_prob = xception_prob[:, 1].item()
             
+            logger.debug(f"XceptionNet raw output: {xception_out[0].cpu().numpy()}")
+            logger.debug(f"XceptionNet softmax: real={xception_prob[:, 0].item():.4f}, fake={xception_fake_prob:.4f}")
+            
             # EfficientNet 예측
             efficientnet_out = self.efficientnet(frame)
             efficientnet_prob = F.softmax(efficientnet_out, dim=1)
             efficientnet_fake_prob = efficientnet_prob[:, 1].item()
+            
+            logger.debug(f"EfficientNet raw output: {efficientnet_out[0].cpu().numpy()}")
+            logger.debug(f"EfficientNet softmax: real={efficientnet_prob[:, 0].item():.4f}, fake={efficientnet_fake_prob:.4f}")
         
         return {
             'xception': {
@@ -138,13 +168,20 @@ class DeepfakeEnsemble:
     
     def predict_sequence(self, frames: torch.Tensor) -> Dict:
         """16프레임 시퀀스 예측 (CNN-LSTM)"""
+        logger.debug(f"predict_sequence called - input shape: {frames.shape}")
+        
         with torch.no_grad():
             cnn_lstm_out, attention_weights = self.cnn_lstm(frames)
             cnn_lstm_prob = F.softmax(cnn_lstm_out, dim=1)
             cnn_lstm_fake_prob = cnn_lstm_prob[:, 1].item()
             
+            logger.debug(f"CNN-LSTM raw output: {cnn_lstm_out[0].cpu().numpy()}")
+            logger.debug(f"CNN-LSTM softmax: real={cnn_lstm_prob[:, 0].item():.4f}, fake={cnn_lstm_fake_prob:.4f}")
+            
             # Attention 가중치 분석
             attention_weights = attention_weights.cpu().numpy()[0]
+            logger.debug(f"Attention weights stats - mean: {attention_weights.mean():.4f}, std: {attention_weights.std():.4f}, min: {attention_weights.min():.4f}, max: {attention_weights.max():.4f}")
+            
             suspicious_frames = self._analyze_attention(attention_weights)
         
         return {
@@ -244,6 +281,7 @@ class DeepfakeEnsemble:
         """Attention이 높은 의심 프레임 추출"""
         threshold = np.mean(attention_weights) + np.std(attention_weights)
         suspicious = np.where(attention_weights > threshold)[0].tolist()
+        logger.debug(f"Suspicious frames detected: {len(suspicious)} frames with threshold {threshold:.4f}")
         return suspicious
     
     def _aggregate_artifacts(

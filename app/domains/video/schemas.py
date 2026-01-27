@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_serializer
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional, Dict
@@ -20,35 +20,34 @@ class VideoFileData(BaseModel):
     format: Optional[str] = None
     fps: Optional[Decimal] = None
     uploadedAt: datetime
-
-# ========================================
-# 새로 추가되는 클래스들
-# ========================================
+    
+    @field_serializer('uploadedAt')
+    def serialize_datetime(self, dt: datetime, _info):
+        if dt is None:
+            return None
+        # 타임존 정보 포함
+        return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + dt.strftime('%z')
 
 class ModelPredictionData(BaseModel):
     """개별 모델 예측 결과"""
     modelName: str
     fakeProbability: Decimal
-    prediction: str  # 'fake' or 'real'
+    prediction: str
     confidence: Decimal
     detectedPatterns: List[str]
-    suspiciousFrames: Optional[List[int]] = None  # CNN-LSTM 전용
+    suspiciousFrames: Optional[List[int]] = None
 
 class ArtifactCategoryData(BaseModel):
     """아티팩트 카테고리별 정보"""
     detected: bool
-    sources: List[str]  # 탐지한 모델 목록
-    patterns: List[str]  # 탐지된 패턴 설명
+    sources: List[str]
+    patterns: List[str]
 
 class DetectedArtifactsData(BaseModel):
     """탐지된 아티팩트 전체"""
     spatial: ArtifactCategoryData
     temporal: ArtifactCategoryData
     structural: ArtifactCategoryData
-
-# ========================================
-# 기존 클래스 확장
-# ========================================
 
 class AnalysisResultData(BaseModel):
     model_config = ConfigDict(json_encoders={
@@ -65,15 +64,18 @@ class AnalysisResultData(BaseModel):
     detectedTechniques: Optional[str] = None
     summary: Optional[str] = None
     analyzedAt: datetime
+    ensembleFakeProbability: Optional[Decimal] = None
+    modelAgreement: Optional[Decimal] = None
+    riskLevel: Optional[str] = None
+    individualModels: Optional[Dict[str, ModelPredictionData]] = None
+    detectedArtifacts: Optional[DetectedArtifactsData] = None
     
-    # ========================================
-    # 새로 추가되는 필드들
-    # ========================================
-    ensembleFakeProbability: Optional[Decimal] = None  # 앙상블 종합 확률
-    modelAgreement: Optional[Decimal] = None  # 모델 합의도 (0~1)
-    riskLevel: Optional[str] = None  # 'HIGH', 'MEDIUM', 'LOW', 'SAFE'
-    individualModels: Optional[Dict[str, ModelPredictionData]] = None  # 개별 모델 결과
-    detectedArtifacts: Optional[DetectedArtifactsData] = None  # 탐지된 아티팩트
+    @field_serializer('createdAt', 'analyzedAt')
+    def serialize_datetime(self, dt: datetime, _info):
+        if dt is None:
+            return None
+        # 타임존 정보 포함
+        return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + dt.strftime('%z')
 
 class FrameAnalysisData(BaseModel):
     frameId: Optional[int] = None
@@ -97,3 +99,10 @@ class VideoAnalysisResponse(BaseModel):
     videoFile: Optional[VideoFileData] = None
     analysisResult: Optional[AnalysisResultData] = None
     frameAnalyses: Optional[List[FrameAnalysisData]] = None
+    
+    @field_serializer('createdAt', 'completedAt')
+    def serialize_datetime(self, dt: datetime, _info):
+        if dt is None:
+            return None
+        # 밀리초 3자리 + 타임존
+        return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + dt.strftime('%z')

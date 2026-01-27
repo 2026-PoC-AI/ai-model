@@ -114,18 +114,6 @@ def create_app() -> FastAPI:
 app = create_app()
 
 if __name__ == "__main__":
-    print("\n" + "="*60)
-    print("Starting Deepfake Detection API v2.0")
-    print("="*60)
-    print("Video: XceptionNet + EfficientNet-B4 + CNN-LSTM Ensemble")
-    print("  - 공간적 아티팩트 탐지 (XceptionNet)")
-    print("  - 구조적 불일치 분석 (EfficientNet-B4)")
-    print("  - 시간적 일관성 검증 (CNN-LSTM)")
-    print("-"*60)
-    print("Audio: Mel-spectrogram CNN + LFCC CNN")
-    print("  - Expected Accuracy: 99.6-99.8%")
-    print("="*60 + "\n")
-    
     uvicorn.run(
         "app.main:app",
         host=settings.HOST,

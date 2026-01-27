@@ -24,7 +24,7 @@ class DeepfakeDataset(Dataset):
         
         # 레이블 생성: 0=real, 1=fake
         self.samples = [(img, 0) for img in self.real_images] + \
-                      [(img, 1) for img in self.fake_images]
+                        [(img, 1) for img in self.fake_images]
         
         print(f"{split} dataset: {len(self.real_images)} real, {len(self.fake_images)} fake")
     
