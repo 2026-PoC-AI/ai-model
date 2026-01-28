@@ -4,7 +4,7 @@ from video_model import load_video_model
 def main():
     # 모델 경로 설정
     xception_path = "weights/xception/xception_best_20260116.pth"
-    efficientnet_path = "weights/efficientnet/efficientnet_best_20260116.pth"
+    efficientnet_path = "weights/efficientnet/efficientnet_best.pth"
     
     # 테스트 비디오 경로
     test_video = "../data/raw/Celeb-real/videos/id0_id1_0000.mp4"

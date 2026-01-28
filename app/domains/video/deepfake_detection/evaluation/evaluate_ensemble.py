@@ -40,10 +40,10 @@ def load_model(model_path, model_type='xception', device='cpu'):
     return model
 
 def evaluate_ensemble(xception_path, efficientnet_path, 
-                     data_dir='../data/processed',
-                     weights=None, 
-                     ensemble_method='soft_voting',
-                     device='cpu'):
+                        data_dir='../data/processed',
+                        weights=None, 
+                        ensemble_method='soft_voting',
+                        device='cpu'):
     """앙상블 모델 평가"""
     
     # 모델 로드
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     
     # 모델 경로
     xception_path = 'weights/xception/xception_best_20260116.pth'
-    efficientnet_path = 'weights/efficientnet/efficientnet_best_20260116.pth'
+    efficientnet_path = 'weights/efficientnet/efficientnet_best.pth'
     
     print("="*60)
     print("Ensemble Model Evaluation")

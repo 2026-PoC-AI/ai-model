@@ -18,8 +18,8 @@ class Settings(BaseSettings):
 
     # Video Deepfake Detection Models (3-Model Ensemble)
     XCEPTION_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/xception/xception_best_20260116.pth"
-    EFFICIENTNET_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/efficientnet/efficientnet_best_20260116.pth"
-    CNN_LSTM_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/cnn-lstm/improved/best_model_latest.pth"  # // 더블슬래시 제거
+    EFFICIENTNET_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/efficientnet/efficientnet_best.pth"
+    CNN_LSTM_MODEL_PATH: str = "app/domains/video/deepfake_detection/weights/cnn-lstm/improved/best_model_latest.pth" 
 
     # Audio Deepfake Detection Model
     AUDIO_MODEL_PATH: str = "app/domains/audio/deepfake_detection/weights/audio_cnn/best_model_latest.pth"
